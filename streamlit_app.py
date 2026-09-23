@@ -408,7 +408,7 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
+                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id"] == rid:
                     traded = True
                     break
             if not traded:
@@ -969,22 +969,23 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                         
                         status = comp.get("status", {}).get("type", {}).get("description", "Scheduled")
                         
-                        st.markdown(f"""
-                        <div class="lineup-row" style="padding: 12px 18px; margin-bottom: 8px;">
-                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                                <img src="{logo_a}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display='none'">
-                                <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{name_a} <span style="color: #38bdf8; font-size: 15px; margin-left: 4px;">{score_a}</span></div>
-                            </div>
-                            <div style="text-align: center; flex: 0 0 100px;">
-                                {prime_tag}
-                                <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">{status}</div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex: 1;">
-                                <div style="font-size: 14px; font-weight: 700; color: #f8fafc;"><span style="color: #38bdf8; font-size: 15px; margin-right: 4px;">{score_b}</span> {name_b}</div>
-                                <img src="{logo_b}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display='none'">
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        card_html = (
+                            f'<div class="lineup-row" style="padding: 12px 18px; margin-bottom: 8px;">'
+                            f'  <div style="display: flex; align-items: center; gap: 12px; flex: 1;">'
+                            f'      <img src="{logo_a}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display=\'none\'">'
+                            f'      <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{name_a} <span style="color: #38bdf8; font-size: 15px; margin-left: 4px;">{score_a}</span></div>'
+                            f'  </div>'
+                            f'  <div style="text-align: center; flex: 0 0 100px;">'
+                            f'      {prime_tag}'
+                            f'      <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">{status}</div>'
+                            f'  </div>'
+                            f'  <div style="display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex: 1;">'
+                            f'      <div style="font-size: 14px; font-weight: 700; color: #f8fafc;"><span style="color: #38bdf8; font-size: 15px; margin-right: 4px;">{score_b}</span> {name_b}</div>'
+                            f'      <img src="{logo_b}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display=\'none\'">'
+                            f'  </div>'
+                            f'</div>'
+                        )
+                        st.markdown(card_html, unsafe_allow_html=True)
             else:
                 st.info("NFL games for this week are currently between slates.")
         else:
