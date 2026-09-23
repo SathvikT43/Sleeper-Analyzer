@@ -482,7 +482,6 @@ team_picks = {r["roster_id"]: [] for r in rosters}
 for r in rosters:
     rid = r["roster_id"]
     for yr in [2027, 2028, 2029]:
-        yr_short = str(yr)[2:]
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
@@ -545,22 +544,23 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    # Weekly Points Per Game
+    # Weekly Pace and Simulation Projections
     weeks_played = max(current_week, 1)
     ppg_scoring = fpts / weeks_played
+    max_ppg = ppts / weeks_played
     total_season_weeks = 14
     remaining_weeks = max(0, total_season_weeks - weeks_played)
 
-    # Simulation-based projected records (expected win rate based on scoring strength)
-    league_avg_ppg = 185.0
-    win_prob = max(0.10, min(0.90, 0.50 + ((ppg_scoring - league_avg_ppg) / 150.0)))
-    simulated_additional_wins = round(win_prob * remaining_weeks, 1)
-    simulated_additional_losses = round((1.0 - win_prob) * remaining_weeks, 1)
+    # Simulation Logic: Win probability scales based on PPG vs league baseline
+    # High PPG teams (500+ PF) project higher wins; lower scoring teams project lower wins
+    win_prob = max(0.10, min(0.92, 0.50 + ((ppg_scoring - 180.0) / 120.0)))
+    sim_add_wins = round(win_prob * remaining_weeks, 1)
+    sim_add_losses = round((1.0 - win_prob) * remaining_weeks, 1)
 
-    proj_wins = round(wins + simulated_additional_wins, 1)
-    proj_losses = round(losses + simulated_additional_losses, 1)
+    proj_wins = round(wins + sim_add_wins, 1)
+    proj_losses = round(losses + sim_add_losses, 1)
     proj_pf = round(fpts + (ppg_scoring * remaining_weeks), 1)
-    proj_max_pf = round(ppts + ((ppts / weeks_played) * remaining_weeks), 1)
+    proj_max_pf = round(ppts + (max_ppg * remaining_weeks), 1)
 
     future_picks_count = len(team_picks.get(rid, []))
     if wins >= 2 or (fpts >= 420 and t_age >= 25.0):
@@ -600,24 +600,26 @@ for r in rosters:
 
 df_league = pd.DataFrame(league_stats)
 
-# SLEEPER TRUE STANDINGS SORT: Most Wins First, then Highest Points For (PF)
-df_league = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
-df_league["seed"] = range(1, len(df_league) + 1)
+# CURRENT STANDINGS: Sorted strictly by Wins (descending), then Points For (descending)
+df_curr_standings = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
+df_curr_standings["curr_seed"] = range(1, len(df_curr_standings) + 1)
+curr_seed_map = dict(zip(df_curr_standings["roster_id"], df_curr_standings["curr_seed"]))
+df_league["seed"] = df_league["roster_id"].map(curr_seed_map)
 
-# PROJECTED STANDINGS SORT: Most Projected Wins First, then Highest Proj PF
-df_proj = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
-df_proj["proj_seed"] = range(1, len(df_proj) + 1)
-proj_seed_map = dict(zip(df_proj["roster_id"], df_proj["proj_seed"]))
+# PROJECTED STANDINGS: Sorted strictly by Projected Wins (descending), then Projected PF (descending)
+df_proj_standings = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
+df_proj_standings["proj_seed"] = range(1, len(df_proj_standings) + 1)
+proj_seed_map = dict(zip(df_proj_standings["roster_id"], df_proj_standings["proj_seed"]))
 df_league["proj_seed"] = df_league["roster_id"].map(proj_seed_map)
 
-# TRUE CHAMPIONSHIP ODDS (Favor 2-0 / high scoring teams; 0-2 teams properly discounted)
+# Championship odds
 def compute_championship_odds(row):
     w = row["wins"]
     pf = row["points_for"]
-    seed = row["seed"]
-    if seed > 6:
+    s = row["seed"]
+    if s > 6:
         return 1.5
-    score = (w * 35.0) + (pf * 0.15) + (15.0 if seed <= 2 else 5.0)
+    score = (w * 35.0) + (pf * 0.15) + (15.0 if s <= 2 else 5.0)
     return max(score, 1.0)
 
 scores_raw = [compute_championship_odds(r) for _, r in df_league.iterrows()]
@@ -715,7 +717,7 @@ with tab_overview:
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
         <div style="font-size: 24px; font-weight: 800; color: #f43f5e; margin: 2px 0;">{my_row['wins']}W - {my_row['losses']}L</div>
-        <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">Proj: {my_row['proj_wins']}W - {my_row['proj_losses']}L • Seed #{my_row['seed']} (Proj #{my_row['proj_seed']})</div>
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">Current Seed #{my_row['seed']} • Proj Seed #{my_row['proj_seed']} ({my_row['proj_wins']}W-{my_row['proj_losses']}L)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1007,7 +1009,6 @@ with tab_deepdive:
     st.markdown(f"### 🔍 Deep Dive: {selected_team_name}")
     st.caption("Positional power matrix, real-time NFL performance stats, and championship window synchronizer.")
 
-    # Top Diagnostics Row
     luck_val = my_row["luck_score"]
     luck_desc = "Unlucky Schedule (High PA)" if luck_val < -0.4 else ("Lucky Breaks (Low PA)" if luck_val > 0.4 else "Neutral Schedule Luck")
     luck_color = "#4ade80" if luck_val > 0.4 else ("#f43f5e" if luck_val < -0.4 else "#94a3b8")
@@ -1038,7 +1039,7 @@ with tab_deepdive:
     </div>
     """, unsafe_allow_html=True)
 
-    # Positional Rankings Matrix (Matching User's Reference Layout)
+    # Positional Rankings Matrix
     st.markdown('<div class="section-header">📊 Franchise Positional Rank Matrix (Out of 8 Teams)</div>', unsafe_allow_html=True)
     
     def render_pos_rank_item(label, p_key):
@@ -1224,22 +1225,23 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL (CURRENT VS SIMULATED PROJECTED) ====================
 with tab_playoffs:
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
     st.caption("Official standings sorted by Win-Loss record, then Points For (PF). Seeds 1–6 advance to the playoffs. Seeds 7 & 8 play in the Toilet Bowl for Pick 1.01.")
 
+    # Distinct Toggle: Changes the actual table order, seeds, and stat displays
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
 
-    if "Current" in standings_mode:
-        active_standings = df_league.sort_values(by="seed").reset_index(drop=True)
-    else:
-        active_standings = df_league.sort_values(by="proj_seed").reset_index(drop=True)
+    is_proj_mode = "Projected" in standings_mode
+    active_standings = df_proj_standings if is_proj_mode else df_curr_standings
 
     c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
 
     with c_playoff:
-        st.markdown('<div class="section-header">🥇 Championship Playoff Bracket (Seeds 1 to 6)</div>', unsafe_allow_html=True)
+        header_label = "🔮 Projected Final Playoff Bracket (Seeds 1 to 6)" if is_proj_mode else "🥇 Current Playoff Bracket (Seeds 1 to 6)"
+        st.markdown(f'<div class="section-header">{header_label}</div>', unsafe_allow_html=True)
+        
         for idx in range(6):
             row = active_standings.iloc[idx]
             s_num = idx + 1
@@ -1247,16 +1249,28 @@ with tab_playoffs:
             is_me = row['team_name'] == selected_team_name
             highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #1c2333; background: #11151f;"
             
+            if is_proj_mode:
+                stat_display = f"""
+                <div style="font-size: 11px; color: #38bdf8; margin-top: 3px;">
+                    <strong>Projected Finish:</strong> {row['proj_wins']}W - {row['proj_losses']}L • <strong>Proj PF:</strong> {row['proj_pf']:.1f} • <strong>Proj Max PF:</strong> {row['proj_max_pf']:.1f}
+                </div>
+                <div style="font-size: 10px; color: #64748b;">(Current Record: {row['wins']}W - {row['losses']}L | {row['points_for']:.1f} PF)</div>
+                """
+            else:
+                stat_display = f"""
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
+                    <strong>Current Record:</strong> {row['wins']}W - {row['losses']}L • <strong>Total PF:</strong> {row['points_for']:.1f} • <strong>Max PF:</strong> {row['max_pf']:.1f}
+                </div>
+                <div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {row['proj_wins']}W - {row['proj_losses']}L | Proj #{row['proj_seed']})</div>
+                """
+
             st.markdown(f"""
             <div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <span style="font-size: 14px; font-weight: 800; color: #38bdf8; margin-right: 6px;">#{s_num}</span>
                         <strong style="font-size: 14px; color: #f1f5f9;">{row['team_name']}</strong> {bye_tag}
-                        <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
-                            <strong>Current:</strong> {row['wins']}W - {row['losses']}L ({row['points_for']:.1f} PF)<br>
-                            <span style="color: #38bdf8;"><strong>Simulated Proj:</strong> {row['proj_wins']}W - {row['proj_losses']}L ({row['proj_pf']:.1f} PF)</span>
-                        </div>
+                        {stat_display}
                     </div>
                     <div style="text-align: right;">
                         <div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{row['odds_2026']}%</div>
@@ -1267,12 +1281,16 @@ with tab_playoffs:
             """, unsafe_allow_html=True)
 
     with c_toilet:
-        st.markdown('<div class="section-header">🚽 The Toilet Bowl (Seeds 7 & 8 Only)</div>', unsafe_allow_html=True)
+        toilet_header = "🚽 Projected Toilet Bowl (Seeds 7 & 8 Finishers)" if is_proj_mode else "🚽 Current Toilet Bowl (Teams in Seeds 7 & 8)"
+        st.markdown(f'<div class="section-header">{toilet_header}</div>', unsafe_allow_html=True)
+        
         team_7 = active_standings.iloc[6]
         team_8 = active_standings.iloc[7]
 
-        # The lower Max PF BETWEEN 7 and 8 wins 1.01
-        if team_7["max_pf"] < team_8["max_pf"]:
+        # Use projected Max PF in projected mode; use current Max PF in current mode
+        mpf_col = "proj_max_pf" if is_proj_mode else "max_pf"
+        
+        if team_7[mpf_col] < team_8[mpf_col]:
             pick_101_team = team_7
             pick_102_team = team_8
         else:
@@ -1283,43 +1301,49 @@ with tab_playoffs:
         <div class="insight-card" style="border-left: 4px solid #facc15; margin-bottom: 12px;">
             <div style="color: #facc15; font-size: 12px; font-weight: 700;">TOILET BOWL (PICK 1.01 DETERMINATION)</div>
             <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
-                Teams finishing in <strong>Seeds 7 & 8 ({team_7['team_name']} & {team_8['team_name']})</strong> battle for the #1 pick.
-                Per league rule: <strong>The lower Max PF between these 2 teams gets Pick 1.01</strong>:
+                Combatants: <strong>{team_7['team_name']}</strong> & <strong>{team_8['team_name']}</strong>.
+                Per league rule: <strong>The lower Max PF between these 2 teams wins Pick 1.01</strong>:
             </div>
             <div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <span class="badge badge-rising">PROJ PICK 1.01</span>
+                        <span class="badge badge-rising">WINNER ➔ PICK 1.01</span>
                         <strong style="color: #f8fafc; font-size: 13px;">{pick_101_team['team_name']}</strong>
-                        <div style="font-size: 11px; color: #94a3b8;">Current: {pick_101_team['wins']}W-{pick_101_team['losses']}L • Proj: {pick_101_team['proj_wins']}W-{pick_101_team['proj_losses']}L</div>
+                        <div style="font-size: 11px; color: #94a3b8;">
+                            {'Proj Final: ' + str(pick_101_team['proj_wins']) + 'W-' + str(pick_101_team['proj_losses']) + 'L' if is_proj_mode else 'Current: ' + str(pick_101_team['wins']) + 'W-' + str(pick_101_team['losses']) + 'L'}
+                        </div>
                     </div>
-                    <span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_team['max_pf']:.1f} Max PF</span>
+                    <span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_team[mpf_col]:.1f} Max PF</span>
                 </div>
             </div>
             <div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <span class="badge badge-hold">PROJ PICK 1.02</span>
+                        <span class="badge badge-hold">RUNNER-UP ➔ PICK 1.02</span>
                         <strong style="color: #f8fafc; font-size: 13px;">{pick_102_team['team_name']}</strong>
-                        <div style="font-size: 11px; color: #94a3b8;">Current: {pick_102_team['wins']}W-{pick_102_team['losses']}L • Proj: {pick_102_team['proj_wins']}W-{pick_102_team['proj_losses']}L</div>
+                        <div style="font-size: 11px; color: #94a3b8;">
+                            {'Proj Final: ' + str(pick_102_team['proj_wins']) + 'W-' + str(pick_102_team['proj_losses']) + 'L' if is_proj_mode else 'Current: ' + str(pick_102_team['wins']) + 'W-' + str(pick_102_team['losses']) + 'L'}
+                        </div>
                     </div>
-                    <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_team['max_pf']:.1f} Max PF</span>
+                    <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_team[mpf_col]:.1f} Max PF</span>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div class="section-header">🎯 Complete 2027 Round 1 Draft Order Projection</div>', unsafe_allow_html=True)
-        playoff_six_sorted = active_standings.iloc[:6].sort_values(by="max_pf", ascending=True).reset_index(drop=True)
+        board_header = "🎯 Projected 2027 Round 1 Draft Order (End-of-Season Simulation)" if is_proj_mode else "🎯 Projected 2027 Round 1 Draft Order (Current Standings)"
+        st.markdown(f'<div class="section-header">{board_header}</div>', unsafe_allow_html=True)
+        
+        playoff_six_sorted = active_standings.iloc[:6].sort_values(by=mpf_col, ascending=True).reset_index(drop=True)
         
         full_proj_order = [
-            (pick_101_team['team_name'], pick_101_team['max_pf'], "Toilet Bowl Winner (Lowest Max PF)"),
-            (pick_102_team['team_name'], pick_102_team['max_pf'], "Toilet Bowl Runner-Up")
+            (pick_101_team['team_name'], pick_101_team[mpf_col], "Toilet Bowl Winner (Lowest Max PF)"),
+            (pick_102_team['team_name'], pick_102_team[mpf_col], "Toilet Bowl Runner-Up")
         ]
         for p_row in playoff_six_sorted.itertuples():
-            full_proj_order.append((p_row.team_name, p_row.max_pf, f"Playoff Seed #{p_row.seed}"))
+            full_proj_order.append((p_row.team_name, getattr(p_row, mpf_col), "Playoff Seed"))
 
-        for slot_idx, (t_name, mpf, reason) in enumerate(full_proj_order, 1):
+        for slot_idx, (t_name, mpf_val, reason) in enumerate(full_proj_order, 1):
             is_me = t_name == selected_team_name
             highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
             st.markdown(f"""
@@ -1327,7 +1351,7 @@ with tab_playoffs:
                 <div style="font-size: 12px; font-weight: 700; color: {'#38bdf8' if is_me else '#f8fafc'};">
                     <span style="color: #64748b; margin-right: 8px;">Pick 1.0{slot_idx}</span> {t_name}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #94a3b8;">{mpf:.1f} Max PF</div>
+                <div style="font-size: 11px; font-weight: 600; color: #94a3b8;">{mpf_val:.1f} Max PF</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1349,6 +1373,7 @@ with tab_trades:
         sel_pka = st.multiselect(f"Draft Picks sent by {ta}", list(opts_pka.keys()), key="spka")
 
     with cb:
+        default_b_idx = 1 if team_names.index(ta) != 1 else 0
         tb = st.selectbox("Franchise B (Trade Partner)", [t for t in team_names if t != ta], index=0, key="t_b")
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
         p_b = r_b.get("players", []) or []
