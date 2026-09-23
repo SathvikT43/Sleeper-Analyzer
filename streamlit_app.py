@@ -345,25 +345,21 @@ def fetch_league(l_id: str):
         state = requests.get(f"{BASE_URL}/state/nfl", headers=headers, timeout=10).json() or {}
         cur_week = state.get("week", 1)
         
-        # Robust Matchup Fetcher: check current week, fallback backwards if empty
         matchups = {}
-        active_week = cur_week
-        for w in range(cur_week, 0, -1):
-            m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=6)
+        for w in range(1, 15):
+            m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=5)
             if m_resp.status_code == 200:
                 data = m_resp.json() or []
                 if data:
                     matchups[w] = data
-                    active_week = w
-                    break
 
-        return league_info, users, rosters, traded_picks, matchups, active_week
+        return league_info, users, rosters, traded_picks, matchups, cur_week
     except Exception:
         return None, [], [], [], {}, 1
 
 all_players = get_all_players()
 nfl_stats_season = get_season_nfl_stats(2026)
-league_info, users, rosters, traded_picks, matchups_data, active_matchup_week = fetch_league(league_id)
+league_info, users, rosters, traded_picks, matchups_data, current_nfl_week = fetch_league(league_id)
 
 if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
@@ -663,7 +659,7 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    weeks_played = max(active_matchup_week, 1)
+    weeks_played = max(current_nfl_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
     total_season_weeks = 14
@@ -1136,14 +1132,19 @@ with tab_deepdive:
         st.markdown(render_pos_rank_item("Secondary & LBs (IDP)", "IDP"), unsafe_allow_html=True)
         st.markdown(render_pos_rank_item("Draft Capital (2027-2029)", "Picks"), unsafe_allow_html=True)
 
-# ==================== TAB 4: LIVE MATCHUPS (ROBUST FALLBACK) ====================
+# ==================== TAB 4: LIVE MATCHUPS (WITH WEEK SELECTOR) ====================
 with tab_matchups:
-    st.markdown(f"### ⚔️ Live Head-to-Head Matchups (Week {active_matchup_week})")
-    st.caption("Real-time scoring battle between league opponents for the active NFL week.")
+    st.markdown("### ⚔️ Live Head-to-Head Matchups")
+    st.caption("Real-time scoring battle between league opponents.")
 
-    cur_matchups = matchups_data.get(active_matchup_week, [])
+    available_weeks = sorted(list(matchups_data.keys())) if matchups_data else [current_nfl_week]
+    default_wk_idx = available_weeks.index(current_nfl_week) if current_nfl_week in available_weeks else 0
+    
+    selected_matchup_week = st.selectbox("Select NFL Week", available_weeks, index=default_wk_idx, key="matchup_wk_select")
+
+    cur_matchups = matchups_data.get(selected_matchup_week, [])
     if not cur_matchups:
-        st.info(f"No matchup data currently recorded for Week {active_matchup_week}.")
+        st.info(f"No matchup data currently recorded for Week {selected_matchup_week}.")
     else:
         matchup_pairs = {}
         for m in cur_matchups:
@@ -1175,17 +1176,6 @@ with tab_matchups:
                             <div style="font-size: 14px; font-weight: 700; color: {'#38bdf8' if team2.get('roster_id') == selected_rid else '#f8fafc'};">{t2_name}</div>
                             <div style="font-size: 22px; font-weight: 800; color: #f1f5f9; margin-top: 2px;">{t2_pts:.2f} <span style="font-size: 11px; color: #64748b; font-weight: 400;">pts</span></div>
                         </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            elif len(pair) == 1:
-                t_name = roster_owner_map.get(pair[0].get("roster_id"), "Team")
-                t_pts = pair[0].get("points", 0.0)
-                st.markdown(f"""
-                <div class="insight-card" style="padding: 12px 16px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{t_name} (Bye / Solo)</div>
-                        <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">{t_pts:.2f} pts</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
