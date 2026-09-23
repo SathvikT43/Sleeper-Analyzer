@@ -475,7 +475,7 @@ def evaluate_player(pid, p_info):
         "stat_line": stat_line, "desc": desc
     }
 
-# ==================== DRAFT PICK INVENTORY & TRADE MAPPING ====================
+# ==================== DRAFT PICK INVENTORY & MAPPING ====================
 pick_value_base = {1: 750, 2: 360, 3: 160}
 team_picks = {r["roster_id"]: [] for r in rosters}
 
@@ -718,8 +718,6 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
-    total_games = my_row['wins'] + my_row['losses']
-    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
@@ -1239,8 +1237,13 @@ with tab_playoffs:
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
     is_proj_mode = "Projected" in standings_mode
 
-    # Use pure list of dictionaries to completely avoid pandas Series KeyError
-    active_standings_list = df_proj_calc.to_dict('records') if is_proj_mode else df_curr_calc.to_dict('records')
+    # Sort full df_league directly to guarantee ALL columns exist
+    if is_proj_mode:
+        active_sorted_df = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
+    else:
+        active_sorted_df = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
+
+    active_standings_list = active_sorted_df.to_dict('records')
 
     c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
 
@@ -1252,30 +1255,31 @@ with tab_playoffs:
             row = active_standings_list[idx]
             s_num = idx + 1
             bye_tag = '<span class="badge badge-rising">FIRST ROUND BYE</span>' if s_num <= 2 else '<span class="badge badge-hold">QUARTERFINALS</span>'
-            is_me = row['team_name'] == selected_team_name
+            is_me = row.get('team_name') == selected_team_name
             highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #1c2333; background: #11151f;"
             
-            p_wins = row.get("proj_wins", row["wins"])
-            p_loss = row.get("proj_losses", row["losses"])
-            p_pf = row.get("proj_pf", row["points_for"])
-            p_mpf = row.get("proj_max_pf", row["max_pf"])
+            p_wins = row.get("proj_wins", row.get("wins", 0))
+            p_loss = row.get("proj_losses", row.get("losses", 0))
+            p_pf = row.get("proj_pf", row.get("points_for", 0.0))
+            p_mpf = row.get("proj_max_pf", row.get("max_pf", 0.0))
             p_seed = row.get("proj_seed", s_num)
+            c_odds = row.get("odds_2026", 10.0)
 
             if is_proj_mode:
-                stat_display = f'<div style="font-size: 11px; color: #38bdf8; margin-top: 3px;"><strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}</div><div style="font-size: 10px; color: #64748b;">(Current Record: {row["wins"]}W - {row["losses"]}L | {row["points_for"]:.1f} PF)</div>'
+                stat_display = f'<div style="font-size: 11px; color: #38bdf8; margin-top: 3px;"><strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}</div><div style="font-size: 10px; color: #64748b;">(Current Record: {row.get("wins", 0)}W - {row.get("losses", 0)}L | {row.get("points_for", 0.0):.1f} PF)</div>'
             else:
-                stat_display = f'<div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><strong>Current Record:</strong> {row["wins"]}W - {row["losses"]}L • <strong>Total PF:</strong> {row["points_for"]:.1f} • <strong>Max PF:</strong> {row["max_pf"]:.1f}</div><div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L | Proj Seed #{p_seed})</div>'
+                stat_display = f'<div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><strong>Current Record:</strong> {row.get("wins", 0)}W - {row.get("losses", 0)}L • <strong>Total PF:</strong> {row.get("points_for", 0.0):.1f} • <strong>Max PF:</strong> {row.get("max_pf", 0.0):.1f}</div><div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L | Proj Seed #{p_seed})</div>'
 
             card_row = (
                 f'<div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">'
                 f'<div style="display: flex; justify-content: space-between; align-items: center;">'
                 f'<div>'
                 f'<span style="font-size: 14px; font-weight: 800; color: #38bdf8; margin-right: 6px;">#{s_num}</span>'
-                f'<strong style="font-size: 14px; color: #f1f5f9;">{row["team_name"]}</strong> {bye_tag}'
+                f'<strong style="font-size: 14px; color: #f1f5f9;">{row.get("team_name", "Team")}</strong> {bye_tag}'
                 f'{stat_display}'
                 f'</div>'
                 f'<div style="text-align: right;">'
-                f'<div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{row["odds_2026"]}%</div>'
+                f'<div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{c_odds}%</div>'
                 f'<div style="font-size: 10px; color: #64748b;">Title Odds</div>'
                 f'</div>'
                 f'</div>'
@@ -1292,8 +1296,8 @@ with tab_playoffs:
 
         mpf_key = "proj_max_pf" if is_proj_mode else "max_pf"
         
-        # Determine 1.01 winner by lower Max PF between 7 & 8
-        if team_7[mpf_key] < team_8[mpf_key]:
+        # Lower Max PF between Seeds 7 & 8 gets Pick 1.01
+        if team_7.get(mpf_key, 0) < team_8.get(mpf_key, 0):
             pick_101_orig_team = team_7
             pick_102_orig_team = team_8
         else:
@@ -1310,14 +1314,14 @@ with tab_playoffs:
         is_102_traded = owner_102_rid != pick_102_orig_team['roster_id']
         display_102 = f"{owner_102_name} <span style='font-size:11px; color:#38bdf8;'>(via {pick_102_orig_team['team_name']})</span>" if is_102_traded else owner_102_name
 
-        p1_rec = f"Proj Final: {pick_101_orig_team['proj_wins']}W-{pick_101_orig_team['proj_losses']}L" if is_proj_mode else f"Current: {pick_101_orig_team['wins']}W-{pick_101_orig_team['losses']}L"
-        p2_rec = f"Proj Final: {pick_102_orig_team['proj_wins']}W-{pick_102_orig_team['proj_losses']}L" if is_proj_mode else f"Current: {pick_102_orig_team['wins']}W-{pick_102_orig_team['losses']}L"
+        p1_rec = f"Proj Final: {pick_101_orig_team.get('proj_wins', 0)}W-{pick_101_orig_team.get('proj_losses', 0)}L" if is_proj_mode else f"Current: {pick_101_orig_team.get('wins', 0)}W-{pick_101_orig_team.get('losses', 0)}L"
+        p2_rec = f"Proj Final: {pick_102_orig_team.get('proj_wins', 0)}W-{pick_102_orig_team.get('proj_losses', 0)}L" if is_proj_mode else f"Current: {pick_102_orig_team.get('wins', 0)}W-{pick_102_orig_team.get('losses', 0)}L"
 
         toilet_summary = (
             f'<div class="insight-card" style="border-left: 4px solid #facc15; margin-bottom: 12px;">'
             f'<div style="color: #facc15; font-size: 12px; font-weight: 700;">TOILET BOWL (PICK 1.01 DETERMINATION)</div>'
             f'<div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">'
-            f'Combatants: <strong>{team_7["team_name"]}</strong> & <strong>{team_8["team_name"]}</strong>. '
+            f'Combatants: <strong>{team_7.get("team_name")}</strong> & <strong>{team_8.get("team_name")}</strong>. '
             f'Per league rule: <strong>The lower Max PF between these 2 teams wins Pick 1.01</strong>:'
             f'</div>'
             f'<div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
@@ -1327,7 +1331,7 @@ with tab_playoffs:
             f'<strong style="color: #f8fafc; font-size: 13px;">{display_101}</strong>'
             f'<div style="font-size: 11px; color: #94a3b8;">{p1_rec}</div>'
             f'</div>'
-            f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_orig_team[mpf_key]:.1f} Max PF</span>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_orig_team.get(mpf_key, 0.0):.1f} Max PF</span>'
             f'</div>'
             f'</div>'
             f'<div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
@@ -1337,7 +1341,7 @@ with tab_playoffs:
             f'<strong style="color: #f8fafc; font-size: 13px;">{display_102}</strong>'
             f'<div style="font-size: 11px; color: #94a3b8;">{p2_rec}</div>'
             f'</div>'
-            f'<span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_orig_team[mpf_key]:.1f} Max PF</span>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_orig_team.get(mpf_key, 0.0):.1f} Max PF</span>'
             f'</div>'
             f'</div>'
             f'</div>'
@@ -1348,14 +1352,14 @@ with tab_playoffs:
         st.markdown(f'<div class="section-header">{board_header}</div>', unsafe_allow_html=True)
         
         # Sort playoff teams (seeds 1 to 6) in reverse Max PF order
-        playoff_six_sorted = sorted(active_standings_list[:6], key=lambda x: x[mpf_key])
+        playoff_six_sorted = sorted(active_standings_list[:6], key=lambda x: x.get(mpf_key, 0.0))
         
         full_proj_order = [
-            (pick_101_orig_team['roster_id'], pick_101_orig_team['team_name'], pick_101_orig_team[mpf_key]),
-            (pick_102_orig_team['roster_id'], pick_102_orig_team['team_name'], pick_102_orig_team[mpf_key])
+            (pick_101_orig_team['roster_id'], pick_101_orig_team['team_name'], pick_101_orig_team.get(mpf_key, 0.0)),
+            (pick_102_orig_team['roster_id'], pick_102_orig_team['team_name'], pick_102_orig_team.get(mpf_key, 0.0))
         ]
         for p_row in playoff_six_sorted:
-            full_proj_order.append((p_row['roster_id'], p_row['team_name'], p_row[mpf_key]))
+            full_proj_order.append((p_row['roster_id'], p_row['team_name'], p_row.get(mpf_key, 0.0)))
 
         for slot_idx, (orig_rid, orig_tname, mpf_val) in enumerate(full_proj_order, 1):
             curr_holder_rid = pick_2027_rd1_owner.get(orig_rid, orig_rid)
