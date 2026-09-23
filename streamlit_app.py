@@ -544,15 +544,13 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    # Weekly Pace and Simulation Projections
+    # Simulation Logic
     weeks_played = max(current_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
     total_season_weeks = 14
     remaining_weeks = max(0, total_season_weeks - weeks_played)
 
-    # Simulation Logic: Win probability scales based on PPG vs league baseline
-    # High PPG teams (500+ PF) project higher wins; lower scoring teams project lower wins
     win_prob = max(0.10, min(0.92, 0.50 + ((ppg_scoring - 180.0) / 120.0)))
     sim_add_wins = round(win_prob * remaining_weeks, 1)
     sim_add_losses = round((1.0 - win_prob) * remaining_weeks, 1)
@@ -600,19 +598,18 @@ for r in rosters:
 
 df_league = pd.DataFrame(league_stats)
 
-# CURRENT STANDINGS: Sorted strictly by Wins (descending), then Points For (descending)
-df_curr_standings = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
-df_curr_standings["curr_seed"] = range(1, len(df_curr_standings) + 1)
-curr_seed_map = dict(zip(df_curr_standings["roster_id"], df_curr_standings["curr_seed"]))
+# Current Standings Table
+df_curr = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
+df_curr["seed"] = range(1, len(df_curr) + 1)
+curr_seed_map = dict(zip(df_curr["roster_id"], df_curr["seed"]))
 df_league["seed"] = df_league["roster_id"].map(curr_seed_map)
 
-# PROJECTED STANDINGS: Sorted strictly by Projected Wins (descending), then Projected PF (descending)
-df_proj_standings = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
-df_proj_standings["proj_seed"] = range(1, len(df_proj_standings) + 1)
-proj_seed_map = dict(zip(df_proj_standings["roster_id"], df_proj_standings["proj_seed"]))
+# Projected Standings Table
+df_proj = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
+df_proj["seed"] = range(1, len(df_proj) + 1)
+proj_seed_map = dict(zip(df_proj["roster_id"], df_proj["seed"]))
 df_league["proj_seed"] = df_league["roster_id"].map(proj_seed_map)
 
-# Championship odds
 def compute_championship_odds(row):
     w = row["wins"]
     pf = row["points_for"]
@@ -625,7 +622,6 @@ def compute_championship_odds(row):
 scores_raw = [compute_championship_odds(r) for _, r in df_league.iterrows()]
 tot_raw = sum(scores_raw)
 df_league["odds_2026"] = [round((s / tot_raw) * 100, 1) for s in scores_raw]
-
 df_league["odds_2027"] = [round((r["total_value"] / df_league["total_value"].sum()) * 100, 1) for _, r in df_league.iterrows()]
 df_league["odds_2028"] = df_league["odds_2027"]
 
@@ -713,6 +709,8 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
@@ -1225,16 +1223,15 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL (CURRENT VS SIMULATED PROJECTED) ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL (FIXED CURRENT VS PROJECTED) ====================
 with tab_playoffs:
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
     st.caption("Official standings sorted by Win-Loss record, then Points For (PF). Seeds 1–6 advance to the playoffs. Seeds 7 & 8 play in the Toilet Bowl for Pick 1.01.")
 
-    # Distinct Toggle: Changes the actual table order, seeds, and stat displays
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
 
     is_proj_mode = "Projected" in standings_mode
-    active_standings = df_proj_standings if is_proj_mode else df_curr_standings
+    active_standings = df_proj if is_proj_mode else df_curr
 
     c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
 
@@ -1261,7 +1258,7 @@ with tab_playoffs:
                 <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
                     <strong>Current Record:</strong> {row['wins']}W - {row['losses']}L • <strong>Total PF:</strong> {row['points_for']:.1f} • <strong>Max PF:</strong> {row['max_pf']:.1f}
                 </div>
-                <div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {row['proj_wins']}W - {row['proj_losses']}L | Proj #{row['proj_seed']})</div>
+                <div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {row['proj_wins']}W - {row['proj_losses']}L | Proj Seed #{row['proj_seed']})</div>
                 """
 
             st.markdown(f"""
@@ -1287,7 +1284,6 @@ with tab_playoffs:
         team_7 = active_standings.iloc[6]
         team_8 = active_standings.iloc[7]
 
-        # Use projected Max PF in projected mode; use current Max PF in current mode
         mpf_col = "proj_max_pf" if is_proj_mode else "max_pf"
         
         if team_7[mpf_col] < team_8[mpf_col]:
@@ -1373,7 +1369,6 @@ with tab_trades:
         sel_pka = st.multiselect(f"Draft Picks sent by {ta}", list(opts_pka.keys()), key="spka")
 
     with cb:
-        default_b_idx = 1 if team_names.index(ta) != 1 else 0
         tb = st.selectbox("Franchise B (Trade Partner)", [t for t in team_names if t != ta], index=0, key="t_b")
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
         p_b = r_b.get("players", []) or []
@@ -1457,8 +1452,8 @@ with tab_trades:
                 p_obj = evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
-                    sim_pos_val[p_cat] -= p_obj["value"]
-                sim_pos_val["Overall"] -= p_obj["value"]
+                    sim_pos_val[p_cat] += p_obj["value"]
+                sim_pos_val["Overall"] += p_obj["value"]
 
             for pk in sel_pkb:
                 sim_pos_val["Picks"] += opts_pkb[pk]["value"]
