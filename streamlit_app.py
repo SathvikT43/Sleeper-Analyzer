@@ -155,7 +155,7 @@ if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
     st.stop()
 
-# Maps
+# User / Roster Maps
 user_map = {
     u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
     for u in users
@@ -220,7 +220,7 @@ def evaluate_player(pid, p_info):
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
 pick_value_base = {1: 650, 2: 320, 3: 140}
 
-# Projected draft order by Max PF (Lowest Max PF gets 1.01 in Toilet Bowl format)
+# Projected draft order by Max PF (Lowest Max PF gets 1.01 in Toilet Bowl)
 max_pf_sorted = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
 projected_pick_slot = {r["roster_id"]: idx + 1 for idx, r in enumerate(max_pf_sorted)}
 
@@ -245,7 +245,6 @@ for r in rosters:
                     "value": int(pick_value_base[rd] * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
                 })
 
-# Add traded-in picks to new owners
 for tp in traded_picks:
     new_owner = tp.get("owner_id")
     orig_roster = tp.get("roster_id")
@@ -264,7 +263,11 @@ for tp in traded_picks:
             "value": int(pick_value_base.get(rd, 200) * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
         })
 
-# ==================== LEAGUE-WIDE AGGREGATION ====================
+# Sort each team's picks by Year, then Round, then Slot
+for rid in team_picks:
+    team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
+
+# ==================== LEAGUE-WIDE AGGREGATION & 3-YEAR PROJECTIONS ====================
 league_stats = []
 for r in rosters:
     rid = r["roster_id"]
@@ -283,11 +286,21 @@ for r in rosters:
     wins = r.get("settings", {}).get("wins", 0)
     losses = r.get("settings", {}).get("losses", 0)
 
-    # Realistic Championship Odds Formula
+    # 2026 Current Year Title Score (Heavily weighted on 2026 PPG & current W-L)
     win_pct = wins / max(wins + losses, 1)
-    title_score = (win_pct * 45.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.001)
+    title_score_2026 = (win_pct * 45.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.001)
     if wins == 0 and current_week >= 2:
-        title_score *= 0.30  # Strong discount for starting 0-2
+        title_score_2026 *= 0.30
+
+    # 2027 Projected Title Score (Youth maturing + 2027 draft capital arriving)
+    youth_bonus_2027 = max(0, (26.5 - t_age) * 15)
+    picks_2027_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] == 2027)
+    title_score_2027 = (player_val * 0.03) + youth_bonus_2027 + (picks_2027_val * 0.04)
+
+    # 2028 Projected Title Score (Long runway + full pick stash)
+    youth_bonus_2028 = max(0, (26.0 - t_age) * 22)
+    picks_2028_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] <= 2028)
+    title_score_2028 = (player_val * 0.025) + youth_bonus_2028 + (picks_2028_val * 0.05)
 
     league_stats.append({
         "roster_id": rid,
@@ -301,18 +314,21 @@ for r in rosters:
         "efficiency": eff_pct,
         "wins": wins,
         "losses": losses,
-        "title_score": title_score
+        "score_2026": title_score_2026,
+        "score_2027": title_score_2027,
+        "score_2028": title_score_2028
     })
 
 df_league = pd.DataFrame(league_stats)
 df_league["rank_val"] = df_league["total_value"].rank(ascending=False, method="min").astype(int)
 df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").astype(int)
-df_league["rank_pts"] = df_league["points_for"].rank(ascending=False, method="min").astype(int)
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
 df_league["rank_standings"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
 
-tot_title_score = max(df_league["title_score"].sum(), 1.0)
-df_league["real_title_odds"] = ((df_league["title_score"] / tot_title_score) * 100).round(1)
+# Calibrate Title Odds % for 2026, 2027, 2028
+df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"].sum(), 1.0)) * 100).round(1)
+df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
+df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
 # ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
@@ -378,9 +394,10 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split Screen (Lineup Left | Intelligence Right)
+    # Split Screen
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
+    # ----- LEFT COLUMN: LINEUP -----
     with col_roster:
         def render_compact_lineup(title, player_list, slot_label="BN"):
             st.markdown(f'<div class="section-header">{title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
@@ -431,13 +448,14 @@ with tab_overview:
         render_compact_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
         render_compact_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
+    # ----- RIGHT COLUMN: FRANCHISE INTELLIGENCE -----
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        # Prime Window
+        # 1. EXPANDED 3-YEAR PRIME WINDOW & TITLE ODDS
         if my_row["avg_age"] < 24.8:
             prime_window = "2027 – 2030 (Ascending Young Core)"
-            strategy_text = "Stockpile 2027/2028 draft capital. Your roster is built to peak in 1-2 years."
+            strategy_text = "Stockpile draft capital. Your young roster will peak strongly in 1-2 years."
         elif my_row["avg_age"] <= 26.8:
             prime_window = "2026 – 2028 (Apex Prime Window)"
             strategy_text = "Championship caliber core. Optimize starting slots for high-impact weeks."
@@ -445,18 +463,42 @@ with tab_overview:
             prime_window = "2026 (Closing Window)"
             strategy_text = "Sell players past age 28 for future 1sts before values fall."
 
-        real_title = my_row["real_title_odds"]
-        playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["rank_standings"] <= 4 else 75)
-
         st.markdown(f"""
         <div class="insight-card">
             <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">CHAMPIONSHIP PRIME WINDOW</div>
-            <div style="font-size: 19px; font-weight: 800; color: #38bdf8; margin: 3px 0;">{prime_window}</div>
-            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 0;">{strategy_text}</p>
+            <div style="font-size: 20px; font-weight: 800; color: #38bdf8; margin: 3px 0;">{prime_window}</div>
+            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 8px;">{strategy_text}</p>
         </div>
         """, unsafe_allow_html=True)
 
-        # Realistic Odds Card
+        # 3-Year Title Odds Interactive Viewer
+        st.markdown("""
+        <div style="font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 4px;">
+            🏆 3-YEAR CHAMPIONSHIP PROBABILITY (ALL TEAMS)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        selected_year = st.radio("Season", ["2026 (Current)", "2027 (Next)", "2028 (Year 3)"], horizontal=True, label_visibility="collapsed")
+        
+        if "2026" in selected_year:
+            year_col = "odds_2026"
+        elif "2027" in selected_year:
+            year_col = "odds_2027"
+        else:
+            year_col = "odds_2028"
+
+        odds_display_df = df_league[["team_name", year_col]].rename(columns={
+            "team_name": "Team", year_col: "Title Chance %"
+        }).sort_values(by="Title Chance %", ascending=False)
+        
+        st.dataframe(
+            odds_display_df.style.format({"Title Chance %": "{:.1f}%"}),
+            use_container_width=True,
+            height=210
+        )
+
+        # 2. 2026 Playoff Odds
+        playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["rank_standings"] <= 4 else 75)
         st.markdown(f"""
         <div class="insight-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -466,26 +508,14 @@ with tab_overview:
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">2026 TITLE CHANCE</div>
-                    <div style="font-size: 22px; font-weight: 800; color: {'#38bdf8' if real_title >= 15 else '#f43f5e'};">{real_title}%</div>
+                    <div style="font-size: 22px; font-weight: 800; color: {'#38bdf8' if my_row['odds_2026'] >= 15 else '#f43f5e'};">{my_row['odds_2026']}%</div>
                 </div>
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects current 0-2 start, weekly points, and 8-team competition.</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects 0-2 start, scoring pacing, and 8-team competition.</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Draft Capital & Pick Projections
-        my_picks = team_picks.get(selected_rid, [])
-        st.markdown(f"""
-        <div class="insight-card">
-            <div style="color: #38bdf8; font-size: 11px; font-weight: 700;">🎯 DRAFT CAPITAL & PROJECTIONS ({len(my_picks)} Picks)</div>
-            <div style="margin-top: 6px; font-size: 12px;">
-        """, unsafe_allow_html=True)
-        
-        pick_str_list = [f"• <strong>{p['desc']}</strong> ({p['value']:,} pts)" for p in my_picks[:6]]
-        st.markdown("<br>".join(pick_str_list) if pick_str_list else "No picks currently owned.", unsafe_allow_html=True)
-        st.markdown("</div></div>", unsafe_allow_html=True)
-
-        # Deduplicated Keepers and Sell Candidates
+        # 3. Deduplicated Keepers and Sell Candidates
         superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]))
         rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
@@ -504,7 +534,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # Toilet Bowl Projection
+        # 4. Toilet Bowl Projection
         tb_leader = df_league.sort_values(by="max_pf").iloc[0]
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #facc15;">
@@ -515,6 +545,30 @@ with tab_overview:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # 5. DRAFT CAPITAL (ALL PICKS AT VERY BOTTOM, GROUPED BY YEAR)
+        my_picks = team_picks.get(selected_rid, [])
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+            <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 DRAFT CAPITAL & PROJECTIONS ({len(my_picks)} TOTAL PICKS)</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Sorted by Draft Year • Projections based on current Max PF order</div>
+        """, unsafe_allow_html=True)
+        
+        if not my_picks:
+            st.caption("No picks currently owned.")
+        else:
+            for yr in [2027, 2028, 2029]:
+                yr_picks = [p for p in my_picks if p["year"] == yr]
+                if yr_picks:
+                    st.markdown(f"<div style='font-size: 12px; font-weight: 700; color: #f8fafc; margin-top: 6px;'>📅 {yr} Picks:</div>", unsafe_allow_html=True)
+                    for p in yr_picks:
+                        st.markdown(f"""
+                        <div style="font-size: 12px; color: #cbd5e1; padding-left: 10px; margin-bottom: 2px;">
+                            • <strong>{p['desc']}</strong> <span style="color: #38bdf8; font-weight: 600;">({p['value']:,} pts)</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================== TAB 2: MATCHUP OUTLOOK ====================
 with tab_matchup:
@@ -546,12 +600,15 @@ with tab_matchup:
 
 # ==================== TAB 3: PRIME YEARS BLUEPRINT ====================
 with tab_blueprint:
-    st.subheader("Championship Runway & Full League Trajectories")
+    st.subheader("Championship Runway & 3-Year Trajectories")
     st.dataframe(
-        df_league[["team_name", "total_value", "player_value", "pick_value", "avg_age", "points_for", "max_pf", "rank_val"]].rename(columns={
+        df_league[["team_name", "total_value", "player_value", "pick_value", "avg_age", "odds_2026", "odds_2027", "odds_2028"]].rename(columns={
             "team_name": "Team", "total_value": "Total Dynasty Pts", "player_value": "Roster Pts", "pick_value": "Picks Pts",
-            "avg_age": "Avg Age", "points_for": "Points For", "max_pf": "Max PF", "rank_val": "Dynasty Rank"
-        }).style.format({"Total Dynasty Pts": "{:,}", "Roster Pts": "{:,}", "Picks Pts": "{:,}", "Avg Age": "{:.1f}", "Points For": "{:.1f}", "Max PF": "{:.1f}"}),
+            "avg_age": "Avg Age", "odds_2026": "2026 Title %", "odds_2027": "2027 Title %", "odds_2028": "2028 Title %"
+        }).style.format({
+            "Total Dynasty Pts": "{:,}", "Roster Pts": "{:,}", "Picks Pts": "{:,}", 
+            "Avg Age": "{:.1f}", "2026 Title %": "{:.1f}%", "2027 Title %": "{:.1f}%", "2028 Title %": "{:.1f}%"
+        }),
         use_container_width=True
     )
 
@@ -559,11 +616,11 @@ with tab_blueprint:
 with tab_playoffs:
     st.subheader("Playoffs (Top 6) & Toilet Bowl (Seeds 7 & 8)")
     st.dataframe(
-        df_league[["rank_standings", "team_name", "wins", "losses", "points_for", "max_pf", "real_title_odds"]].rename(columns={
+        df_league[["rank_standings", "team_name", "wins", "losses", "points_for", "max_pf", "odds_2026"]].rename(columns={
             "rank_standings": "Seed", "team_name": "Team", "wins": "W", "losses": "L",
-            "points_for": "Points For", "max_pf": "Max PF", "real_title_odds": "Title Odds %"
+            "points_for": "Points For", "max_pf": "Max PF", "odds_2026": "2026 Title Odds %"
         }).sort_values(by="Seed").style.format({
-            "Points For": "{:.1f}", "Max PF": "{:.1f}", "Title Odds %": "{:.1f}%"
+            "Points For": "{:.1f}", "Max PF": "{:.1f}", "2026 Title Odds %": "{:.1f}%"
         }),
         use_container_width=True
     )
