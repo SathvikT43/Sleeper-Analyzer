@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== IOS PWA & LIQUID GLASS SIDEBAR CSS ====================
+# ==================== IOS PWA & LIQUID GLASS CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -43,58 +43,16 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Widen & Style Sidebar into Liquid Glass Panel */
     section[data-testid="stSidebar"] {
-        width: 300px !important;
-        background: rgba(8, 12, 20, 0.75) !important;
-        backdrop-filter: blur(35px);
-        -webkit-backdrop-filter: blur(35px);
+        width: 280px !important;
+        background: rgba(8, 12, 20, 0.85) !important;
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     section[data-testid="stSidebar"] .block-container {
-        padding-top: 2.5rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-
-    /* Completely Hide Radio Circles & Transform into Clean iOS Glass Pills */
-    div[data-testid="stRadio"] div[role="radiogroup"] {
-        gap: 8px !important;
-    }
-
-    div[data-testid="stRadio"] label {
-        background: rgba(255, 255, 255, 0.02) !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        border-radius: 12px !important;
-        padding: 10px 14px !important;
-        color: #94a3b8 !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
-        width: 100% !important;
-        cursor: pointer !important;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    }
-
-    div[data-testid="stRadio"] label:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: #f8fafc !important;
-        border-color: rgba(56, 189, 248, 0.25) !important;
-    }
-
-    /* Hide the ugly radio dot input */
-    div[data-testid="stRadio"] input[type="radio"] {
-        display: none !important;
-    }
-
-    /* Active Selected Glass Pill */
-    div[data-testid="stRadio"] label:has(input[type="radio"]:checked) {
-        background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(129, 140, 248, 0.18) 100%) !important;
-        border: 1px solid rgba(56, 189, 248, 0.5) !important;
-        color: #38bdf8 !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-        text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+        padding-top: 2rem;
     }
 
     .glass-header {
@@ -654,7 +612,7 @@ selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] ==
 selected_rid = selected_roster["roster_id"]
 my_row = df_league[df_league["roster_id"] == selected_rid].iloc[0]
 
-# ==================== CONDITIONAL VIEW RENDERER (BASED ON SIDEBAR SLIDEOUT) ====================
+# ==================== CONDITIONAL VIEW RENDERER ====================
 if nav_selection == "👤 Roster & Insights":
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
@@ -984,11 +942,10 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                     competitors = comp.get("competitors", [])
                     game_date_str = ev.get("date", "")
                     
-                    # Determine Prime-Time tag (TNF, SNF, MNF) based on game time
                     prime_tag = ""
                     try:
                         g_dt = datetime.fromisoformat(game_date_str.replace("Z", "+00:00"))
-                        weekday = g_dt.weekday() # 3=Thu, 6=Sun, 0=Mon
+                        weekday = g_dt.weekday()
                         hour = g_dt.hour
                         if weekday == 3:
                             prime_tag = '<span class="badge badge-rookie">TNF</span>'
@@ -1002,14 +959,11 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                     if len(competitors) == 2:
                         team_a, team_b = competitors[0], competitors[1]
                         
-                        # Away vs Home setup usually or team 0 / 1
                         name_a = team_a.get("team", {}).get("shortDisplayName", "Team A")
-                        abbr_a = team_a.get("team", {}).get("abbreviation", "TM1")
                         logo_a = team_a.get("team", {}).get("logo", "")
                         score_a = team_a.get("score", "0")
                         
                         name_b = team_b.get("team", {}).get("shortDisplayName", "Team B")
-                        abbr_b = team_b.get("team", {}).get("abbreviation", "TM2")
                         logo_b = team_b.get("team", {}).get("logo", "")
                         score_b = team_b.get("score", "0")
                         
@@ -1017,15 +971,15 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                         
                         st.markdown(f"""
                         <div class="lineup-row" style="padding: 12px 18px; margin-bottom: 8px;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                                 <img src="{logo_a}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display='none'">
                                 <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{name_a} <span style="color: #38bdf8; font-size: 15px; margin-left: 4px;">{score_a}</span></div>
                             </div>
-                            <div style="text-align: center;">
+                            <div style="text-align: center; flex: 0 0 100px;">
                                 {prime_tag}
                                 <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">{status}</div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 12px; justify-content: flex-end;">
+                            <div style="display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex: 1;">
                                 <div style="font-size: 14px; font-weight: 700; color: #f8fafc;"><span style="color: #38bdf8; font-size: 15px; margin-right: 4px;">{score_b}</span> {name_b}</div>
                                 <img src="{logo_b}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display='none'">
                             </div>
