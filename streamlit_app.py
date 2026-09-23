@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS / IOS LIQUID GLASS DESIGN SYSTEM ====================
+# ==================== MACOS LIQUID GLASS & TAB SEGMENTED BAR CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -36,6 +36,47 @@ st.markdown("""
         cursor: pointer !important;
     }
 
+    /* Floating Frosted Glass Tab Bar (Segmented Control) */
+    div.stTabs {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 6px 10px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    }
+    
+    div.stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background-color: transparent;
+    }
+
+    div.stTabs [data-baseweb="tab"] {
+        background-color: transparent;
+        border-radius: 8px;
+        color: #94a3b8;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 8px 16px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        border: none !important;
+    }
+
+    div.stTabs [data-baseweb="tab"]:hover {
+        color: #f8fafc;
+        background-color: rgba(255, 255, 255, 0.04);
+    }
+
+    div.stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15);
+    }
+
     /* Liquid Glass Card Effect */
     .metric-card {
         background: rgba(255, 255, 255, 0.025);
@@ -43,16 +84,14 @@ st.markdown("""
         -webkit-backdrop-filter: blur(24px);
         border: 1px solid rgba(255, 255, 255, 0.07);
         border-top: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 18px;
-        padding: 18px 22px;
+        border-radius: 16px;
+        padding: 16px 20px;
         margin-bottom: 16px;
-        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: transform 0.2s ease, border-color 0.2s ease;
     }
     .metric-card:hover {
-        transform: translateY(-2px);
         border-color: rgba(56, 189, 248, 0.3);
-        box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
     }
 
     .lineup-row {
@@ -67,12 +106,11 @@ st.markdown("""
         border-radius: 12px;
         padding: 9px 14px;
         margin-bottom: 6px;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: all 0.2s ease;
     }
     .lineup-row:hover {
         background: rgba(255, 255, 255, 0.035);
         border-color: rgba(56, 189, 248, 0.3);
-        transform: scale(1.005);
     }
 
     .pos-slot {
@@ -707,15 +745,20 @@ def get_ordinal(n):
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
     return f"{n}{suffix}"
 
-# ==================== HEADER & SELECTOR ====================
+# ==================== HEADER & LIQUID GLASS NAVIGATION BAR ====================
 h1, h2 = st.columns([3, 1])
 with h1:
-    st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty Hub')}")
-    st.caption("8 Teams • 1QB • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks")
+    st.markdown(f"""
+    <div style="padding: 10px 0;">
+        <h1 style="font-size: 28px; font-weight: 800; color: #f8fafc; margin: 0; letter-spacing: -0.5px;">⚡ {league_info.get('name', 'Dynasty Hub')}</h1>
+        <p style="font-size: 13px; color: #94a3b8; margin: 4px 0 0 0;">8 Teams • 1QB • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
 with h2:
-    selected_team_name = st.selectbox("Select Your Franchise", team_names, index=0)
+    st.markdown('<div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.5px;">ACTIVE FRANCHISE</div>', unsafe_allow_html=True)
+    selected_team_name = st.selectbox("Select Your Franchise", team_names, index=0, label_visibility="collapsed")
 
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
 selected_rid = selected_roster["roster_id"]
@@ -843,7 +886,7 @@ with tab_overview:
             <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">CHAMPIONSHIP PRIME WINDOW</div>
             <div style="font-size: 19px; font-weight: 800; color: #38bdf8; margin: 3px 0;">{prime_window}</div>
             <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 12px;">{strategy_text}</p>
-            <div style="border-top: 1px solid #1c2333; padding-top: 10px; margin-bottom: 8px;">
+            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; margin-bottom: 8px;">
                 <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">🏆 3-YEAR CHAMPIONSHIP PROBABILITY</div>
             </div>
         """, unsafe_allow_html=True)
@@ -854,7 +897,7 @@ with tab_overview:
 
         for rank, row in enumerate(sorted_odds.itertuples(), 1):
             is_me = row.team_name == selected_team_name
-            highlight_border = "border: 1px solid #38bdf8; background: #151f2e;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
+            highlight_border = "border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.05);" if is_me else ""
             accent_color = "#38bdf8" if is_me else "#f8fafc"
             
             row_html = (
@@ -1212,7 +1255,7 @@ with tab_deepdive:
         ]
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+        <div class="insight-card" style="border-left: 4px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
             <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
                 {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
@@ -1226,7 +1269,7 @@ with tab_deepdive:
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+            <div class="insight-card" style="border-left: 4px solid #f43f5e;">
                 <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
                 <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                     These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
@@ -1238,7 +1281,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
         elif is_competing and win_now_veterans:
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
+            <div class="insight-card" style="border-left: 4px solid #fbbf24;">
                 <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
                 <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                     Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
@@ -1611,13 +1654,13 @@ with tab_trades:
                     shift_color = "#f43f5e"
                 else:
                     shift_str = "—"
-                    shift_color = "#94a3b8"
+                    shift_color = "#64748b"
 
                 col_target.markdown(f"""
                 <div class="odds-row" style="padding: 10px 12px; margin-bottom: 8px;">
                     <div>
                         <div style="color: #94a3b8; font-size: 10px; font-weight: 800;">{c_name.upper()} ROOM</div>
-                        <div style="font-size: 14px; font-weight: 800; color: #f1f5f9;">
+                        <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">
                             #{curr_rank} ➔ <span style="color: #38bdf8;">#{sim_rank}</span>
                         </div>
                     </div>
