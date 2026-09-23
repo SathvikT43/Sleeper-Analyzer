@@ -98,10 +98,10 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 7px 10px;
+        padding: 6px 10px;
         background: #10141d;
         border: 1px solid #181e2b;
-        border-radius: 8px;
+        border-radius: 7px;
         margin-bottom: 4px;
     }
 
@@ -176,7 +176,7 @@ roster_owner_map = {
     for r in rosters
 }
 
-# ==================== UNICAPPED NATURAL VALUATION ENGINE ====================
+# ==================== UNCAPPED VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -192,14 +192,13 @@ def evaluate_player(pid, p_info):
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
 
-    # Base values reflecting custom 8-team 2TE + 0.25 TEP + IDP format
     base_scores = {
         "WR": 560, "RB": 520, "TE": 640, "QB": 480,
         "DL": 400, "DE": 400, "DT": 340, "LB": 310, "CB": 210, "S": 240, "K": 80
     }
     base = base_scores.get(pos, 250)
 
-    # Position-specific age longevity curves (e.g. QBs don't fall off at age 30 like RBs)
+    # Position-specific age longevity curves
     if pos == "QB":
         if age <= 24:
             stage, badge, mult = "Rising", "badge-rising", 1.45
@@ -230,7 +229,6 @@ def evaluate_player(pid, p_info):
         else:
             stage, badge, mult = "Unc", "badge-unc", 0.40
 
-    # Natural uncapped value: allows studs to reach 900-1100+ naturally
     calc_val = int(base * mult)
 
     if stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
@@ -297,7 +295,7 @@ for tp in traded_picks:
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
 
-# ==================== LEAGUE-WIDE AGGREGATION & 3-YEAR PROJECTIONS ====================
+# ==================== LEAGUE-WIDE AGGREGATION & PROJECTIONS ====================
 league_stats = []
 for r in rosters:
     rid = r["roster_id"]
@@ -322,7 +320,7 @@ for r in rosters:
     if wins == 0 and current_week >= 2:
         title_score_2026 *= 0.25
 
-    # 2027 Title Score: youth aging into prime + 2027 draft pick injection
+    # 2027 Title Score: youth aging into prime + 2027 draft picks
     picks_2027_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] == 2027)
     age_factor_2027 = max(0.6, 1.4 - (max(0, t_age - 24.5) * 0.15))
     title_score_2027 = (player_val * age_factor_2027 * 0.01) + (picks_2027_val * 0.006)
@@ -353,9 +351,7 @@ df_league = pd.DataFrame(league_stats)
 df_league["rank_val"] = df_league["total_value"].rank(ascending=False, method="min").astype(int)
 df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").astype(int)
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
-df_league["rank_standings"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
 
-# Calibrate clean 100% normalized odds
 df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
@@ -409,11 +405,13 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
         <div style="font-size: 24px; font-weight: 800; color: #f43f5e; margin: 2px 0;">{my_row['wins']}W - {my_row['losses']}L</div>
-        <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">Rank #{my_row['rank_standings']} of 8 overall</div>
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">Win Rate: {win_pct_display:.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -424,10 +422,10 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split: Left (Lineup) | Right (Insights)
+    # Split Screen
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
-    # ----- LEFT COLUMN: LINEUP -----
+    # ----- LEFT: LINEUP -----
     with col_roster:
         def render_compact_lineup(title, player_list, slot_label="BN"):
             st.markdown(f'<div class="section-header">{title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
@@ -478,11 +476,11 @@ with tab_overview:
         render_compact_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
         render_compact_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
-    # ----- RIGHT COLUMN: INTELLIGENCE -----
+    # ----- RIGHT: FRANCHISE INTELLIGENCE -----
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        # 1. 3-Year Prime Window Headline
+        # 1. CLEAN COMBINED PRIME WINDOW & 3-YEAR ODDS CARD
         if my_row["avg_age"] < 24.8:
             prime_window = "2027 – 2030 (Ascending Young Core)"
             strategy_text = "Stockpile draft capital. Your young roster will peak strongly in 1-2 years."
@@ -496,17 +494,14 @@ with tab_overview:
         st.markdown(f"""
         <div class="insight-card">
             <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">CHAMPIONSHIP PRIME WINDOW</div>
-            <div style="font-size: 20px; font-weight: 800; color: #38bdf8; margin: 3px 0;">{prime_window}</div>
-            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 8px;">{strategy_text}</p>
-        </div>
+            <div style="font-size: 19px; font-weight: 800; color: #38bdf8; margin: 3px 0;">{prime_window}</div>
+            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 12px;">{strategy_text}</p>
+            <div style="border-top: 1px solid #1c2333; padding-top: 10px; margin-bottom: 8px;">
+                <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">🏆 3-YEAR CHAMPIONSHIP PROBABILITY</div>
+            </div>
         """, unsafe_allow_html=True)
 
-        # 2. Sleek Custom Glassmorphism 3-Year Championship Odds List
-        st.markdown('<div class="insight-card">', unsafe_allow_html=True)
-        st.markdown('<div style="color: #94a3b8; font-size: 11px; font-weight: 700; margin-bottom: 6px;">🏆 3-YEAR CHAMPIONSHIP PROBABILITY</div>', unsafe_allow_html=True)
-        
         selected_year = st.radio("Season", ["2026 (Current)", "2027 (Next)", "2028 (Year 3)"], horizontal=True, label_visibility="collapsed")
-        
         year_col = "odds_2026" if "2026" in selected_year else ("odds_2027" if "2027" in selected_year else "odds_2028")
         sorted_odds = df_league[["team_name", year_col]].sort_values(by=year_col, ascending=False).reset_index(drop=True)
 
@@ -526,8 +521,8 @@ with tab_overview:
             st.markdown(row_html, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 3. 2026 Playoff Odds
-        playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["rank_standings"] <= 4 else 75)
+        # 2. 2026 Playoff Odds
+        playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["odds_2026"] >= 15 else 75)
         st.markdown(f"""
         <div class="insight-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -544,7 +539,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 4. Deduplicated Keepers & Sell Candidates
+        # 3. Deduplicated Keepers & Sell Candidates
         superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]))
         rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
@@ -563,19 +558,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 5. Toilet Bowl Projection
-        tb_leader = df_league.sort_values(by="max_pf").iloc[0]
-        st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #facc15;">
-            <div style="color: #facc15; font-size: 11px; font-weight: 700;">🚽 TOILET BOWL (PICK 1.01 FAVORITE)</div>
-            <div style="font-size: 12px; color: #cbd5e1; margin-top: 3px;">
-                Lowest Max PF gets Pick 1.01.<br>
-                🥇 <strong>Current Leader:</strong> {tb_leader['team_name']} ({tb_leader['max_pf']:.1f} Max PF)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # 6. ALL DRAFT PICKS (AT THE VERY BOTTOM, UNDER TOILET BOWL)
+        # 4. ALL DRAFT PICKS (AT THE VERY BOTTOM)
         my_picks = team_picks.get(selected_rid, [])
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #38bdf8;">
@@ -645,10 +628,10 @@ with tab_blueprint:
 with tab_playoffs:
     st.subheader("Playoffs (Top 6) & Toilet Bowl (Seeds 7 & 8)")
     st.dataframe(
-        df_league[["rank_standings", "team_name", "wins", "losses", "points_for", "max_pf", "odds_2026"]].rename(columns={
-            "rank_standings": "Seed", "team_name": "Team", "wins": "W", "losses": "L",
+        df_league[["team_name", "wins", "losses", "points_for", "max_pf", "odds_2026"]].rename(columns={
+            "team_name": "Team", "wins": "W", "losses": "L",
             "points_for": "Points For", "max_pf": "Max PF", "odds_2026": "2026 Title Odds %"
-        }).sort_values(by="Seed").style.format({
+        }).sort_values(by=["W", "Points For"], ascending=[False, False]).style.format({
             "Points For": "{:.1f}", "Max PF": "{:.1f}", "2026 Title Odds %": "{:.1f}%"
         }),
         use_container_width=True
