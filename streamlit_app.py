@@ -68,10 +68,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 BASE_URL = "https://api.sleeper.app/v1"
+PERMANENT_LEAGUE_ID = "1312141303219249152"
 
-# Sidebar Configuration for League ID
-st.sidebar.title("⚙️ League Settings")
-league_id = st.sidebar.text_input("Sleeper League ID", value="1312141103282245632")
+# Optional sidebar override if you ever want to analyze another league
+st.sidebar.title("⚡ League Controls")
+league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
 
 @st.cache_data(ttl=86400)
 def get_all_players():
@@ -112,7 +113,7 @@ def fetch_league(l_id: str):
                     trades.append(tx)
 
         return league_info, users, rosters, traded_picks, matchups, cur_week, trades
-    except Exception as e:
+    except Exception:
         return None, [], [], [], {}, 1, []
 
 all_players = get_all_players()
@@ -120,7 +121,6 @@ league_info, users, rosters, traded_picks, matchups, current_week, all_trades = 
 
 if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
-    st.info("💡 **How to check:** Open Sleeper on your phone or browser, go to your league settings (gear icon), scroll to the very bottom, and verify the numeric **League ID**. You can enter it in the left sidebar.")
     st.stop()
 
 # Mapping Users to Rosters
@@ -179,11 +179,11 @@ def evaluate_player(pid, p_info):
 h1, h2 = st.columns([3, 1])
 with h1:
     st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty Hub')}")
-    st.caption(f"8 Teams • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks")
+    st.caption(f"8 Teams • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Capital")
 
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
 with h2:
-    selected_team_name = st.selectbox("Select Team", team_names, index=0)
+    selected_team_name = st.selectbox("Select Your Franchise", team_names, index=0)
 
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
 selected_rid = selected_roster["roster_id"]
@@ -221,7 +221,7 @@ with tab_overview:
     <div class="glass-card">
         <div style="color: #94a3b8; font-size: 13px;">ROSTER AVG AGE</div>
         <div style="font-size: 26px; font-weight: 700; color: #f8fafc;">{avg_age:.1f} yrs</div>
-        <div style="font-size: 12px; color: #818cf8;">{"Youth Heavy" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Core"}</div>
+        <div style="font-size: 12px; color: #818cf8;">{"Youth Foundation" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Core"}</div>
     </div>
     """, unsafe_allow_html=True)
 
