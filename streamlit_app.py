@@ -43,7 +43,7 @@ st.markdown("""
     }
 
     .pos-slot {
-        width: 38px;
+        width: 36px;
         height: 24px;
         line-height: 24px;
         font-size: 10px;
@@ -52,7 +52,7 @@ st.markdown("""
         text-align: center;
         background: #181f2e;
         border-radius: 5px;
-        margin-right: 10px;
+        margin-right: 8px;
         flex-shrink: 0;
         border: 1px solid #232c3f;
     }
@@ -121,16 +121,16 @@ st.markdown("""
         font-size: 15px;
         font-weight: 700;
         color: #f1f5f9;
-        margin-top: 18px;
+        margin-top: 14px;
         margin-bottom: 8px;
     }
 
-    /* Interactive Dropdown Player Card Container */
+    /* Native Interactive Dropdown Player Card */
     details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
         border-radius: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
         overflow: hidden;
         transition: border-color 0.15s ease, background 0.15s ease;
     }
@@ -141,7 +141,7 @@ st.markdown("""
     details.player-expand-card summary {
         list-style: none;
         cursor: pointer;
-        padding: 8px 12px;
+        padding: 7px 10px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -150,8 +150,24 @@ st.markdown("""
     details.player-expand-card summary::-webkit-details-marker {
         display: none;
     }
+
+    /* Rotating Arrow Indicator */
+    .chevron-indicator {
+        font-size: 14px;
+        font-weight: 800;
+        color: #64748b;
+        margin-right: 8px;
+        display: inline-block;
+        transition: transform 0.18s ease, color 0.18s ease;
+        line-height: 1;
+    }
+    details.player-expand-card[open] summary .chevron-indicator {
+        transform: rotate(90deg);
+        color: #38bdf8;
+    }
+
     .player-expand-content {
-        padding: 12px 16px 14px 16px;
+        padding: 10px 14px 12px 14px;
         border-top: 1px solid #1a2233;
         background: #0d1017;
     }
@@ -262,17 +278,16 @@ def evaluate_player(pid, p_info):
     depth_order = p_info.get("depth_chart_order")
     search_rank = p_info.get("search_rank")
 
-    # Real Ingested NFL Stats from Sleeper
+    # Ingest Real 2026 NFL Stats
     p_stat = nfl_stats_season.get(str(pid), {})
     gp = int(p_stat.get("gp", 0) or 0)
     pts_half_ppr = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
     
-    if gp > 0:
-        ppg = round(pts_half_ppr / gp, 1)
-    else:
-        ppg = 0.0
+    ppg = round(pts_half_ppr / gp, 1) if gp > 0 else 0.0
 
     stat_fragments = []
+    scout_fragments = []
+    
     if pos == "QB":
         pass_yd = int(p_stat.get("pass_yd", 0))
         pass_td = int(p_stat.get("pass_td", 0))
@@ -283,6 +298,7 @@ def evaluate_player(pid, p_info):
             stat_fragments.append(f"{pass_yd} Pass Yds • {pass_td} TD • {pass_int} INT")
             if rush_yd > 0:
                 stat_fragments.append(f"{rush_yd} Rush Yds • {rush_td} TD")
+            scout_fragments.append(f"Commanding {team}'s offense with a {pass_td}:{pass_int} TD-to-INT ratio.")
     elif pos == "RB":
         rush_att = int(p_stat.get("rush_att", 0))
         rush_yd = int(p_stat.get("rush_yd", 0))
@@ -293,6 +309,7 @@ def evaluate_player(pid, p_info):
             stat_fragments.append(f"{rush_att} Car • {rush_yd} Yds • {rush_td} TD")
             if rec > 0:
                 stat_fragments.append(f"{rec} Rec • {rec_yd} Yds")
+            scout_fragments.append(f"Handling high-value backfield touches in {team} with {rush_att} total carries.")
     elif pos in ["WR", "TE"]:
         rec = int(p_stat.get("rec", 0))
         rec_yd = int(p_stat.get("rec_yd", 0))
@@ -300,15 +317,18 @@ def evaluate_player(pid, p_info):
         rec_tgt = int(p_stat.get("rec_tgt", 0))
         if rec_tgt > 0 or rec > 0:
             stat_fragments.append(f"{rec}/{rec_tgt} Targets • {rec_yd} Yds • {rec_td} TD")
+            scout_fragments.append(f"Primary target earner in {team} drawing {rec_tgt} targets for {rec_yd} receiving yards.")
     else:  # IDP
         tkl = int(p_stat.get("idp_tkl", 0) or p_stat.get("tkl", 0))
         sack = float(p_stat.get("idp_sack", 0) or p_stat.get("sack", 0))
         tfl = int(p_stat.get("idp_tkl_loss", 0) or p_stat.get("tkl_loss", 0))
         if tkl > 0 or sack > 0:
             stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
+            scout_fragments.append(f"Disruptive front-7 force generating {sack:.1f} sacks and {tfl} tackles for loss.")
 
-    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut or reserve)"
+    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 active debut)"
 
+    # Base Talent Score
     if search_rank and search_rank > 0:
         if search_rank <= 12:
             talent_score = 920 - (search_rank * 8)
@@ -394,23 +414,27 @@ def evaluate_player(pid, p_info):
     else:
         action, act_badge = "HOLD / DEPTH", "badge-hold"
 
-    desc = f"{p_info.get('full_name')} ({age}yo {pos}) for the {team}. "
-    if dynasty_val >= 700:
-        desc += "Elite tier centerpiece offering maximum weekly scoring leverage."
+    # Polished Dynasty Scouting Report Description
+    full_name = p_info.get('full_name') or f"Player {pid}"
+    scout_core = " ".join(scout_fragments)
+    if dynasty_val >= 750:
+        dynasty_outlook = f"Franchise anchor for {team}. In an 8-team format where elite starters dictate titles, his game-breaking weekly ceiling makes him an untouchable cornerstone."
     elif stage == "Rising":
-        desc += "Ascending young talent with strong multi-year development runway."
+        dynasty_outlook = f"Ascending young weapon with exponential multi-year dynasty runway. Ideal centerpiece for 2027–2029 championship windows."
     elif stage == "Prime":
-        desc += "Peak-window producer currently in their prime championship years."
+        dynasty_outlook = f"In the apex of his athletic prime. Maximizing weekly lineup efficiency for active contenders right now."
     elif stage == "Descending":
-        desc += "High immediate win-now scoring power, but nearing the age cliff where value declines."
+        dynasty_outlook = f"Elite immediate win-now scoring profile, but nearing the positional age cliff. Prime candidate to sell to contenders if your team is rebuilding."
     else:
-        desc += "Veteran contributor with limited multi-year runway; suitable bridge starter for contenders."
+        dynasty_outlook = f"Reliable veteran depth piece; best utilized as an injury flex or packaged for future draft capital."
+
+    desc = f"{full_name} ({age}yo {pos}, {team}). {scout_core} {dynasty_outlook}"
 
     return {
         "pid": str(pid), "value": dynasty_val, "redraft_val": redraft_val,
         "stage": stage, "badge": badge, "action": action, "act_badge": act_badge,
         "rookie": is_rookie, "ppg": ppg, "gp": gp, "age": age, "pos": pos, "team": team,
-        "owner": owner, "name": p_info.get("full_name") or f"Player {pid}",
+        "owner": owner, "name": full_name,
         "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
         "college": p_info.get("college") or "N/A",
         "height": p_info.get("height") or "-",
@@ -502,15 +526,15 @@ for r in rosters:
     if wins >= 2 or (fpts >= 420 and t_age >= 25.0):
         posture = "🔥 Competing (Win-Now)"
         posture_badge = "badge-buy"
-        posture_desc = "Strong scoring foundation with prime talent. You should buy elite starters and push for the title."
+        posture_desc = "Prime scoring core. Buy elite starters to capture the championship."
     elif t_age < 25.2 or future_picks_count >= 10:
         posture = "🏗️ Rebuilding (Picks & Youth)"
         posture_badge = "badge-rookie"
-        posture_desc = "Asset rich with high runway. Maximize draft capital and trade aging players for 2027-2029 1sts."
+        posture_desc = "Asset rich with high runway. Maximize draft capital and trade aging assets for 2027-2029 1sts."
     else:
         posture = "🚀 Retooling (Youth Shift)"
         posture_badge = "badge-prime"
-        posture_desc = "Competitive but in transition. Pivot away from declining veterans into rising 22-25 year old assets."
+        posture_desc = "In transition. Pivot away from declining veterans into rising 22-25yo cornerstones."
 
     league_stats.append({
         "roster_id": rid,
@@ -661,7 +685,7 @@ with tab_overview:
                     f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
                     f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
                     f'          <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">{p["name"]} '
-                    f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} • {p["age"]}yo</span>'
+                    f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
                     f'          </div>'
                     f'          <div style="margin-top: 2px;">'
                     f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
@@ -906,12 +930,12 @@ with tab_rankings:
     with fa_idp_tab:
         render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False))
 
-# ==================== TAB 3: DEEP DIVE (NATIVE COLLAPSIBLE CARDS + DYNAMIC AI) ====================
+# ==================== TAB 3: DEEP DIVE (SPLIT-SCREEN WITH CHEVRON DROPDOWN) ====================
 with tab_deepdive:
     st.markdown(f"### 🔍 Deep Dive: {selected_team_name}")
-    st.caption("Click any player to reveal their real-time NFL statistics, 2026 PPG, and valuation comparison.")
+    st.caption("Granular lineup inspection with live 2026 NFL stats, valuation differentials, and window-maximizing intelligence.")
 
-    # Top Diagnostics
+    # Top Diagnostics Row
     luck_val = my_row["luck_score"]
     luck_desc = "Unlucky Schedule (High PA)" if luck_val < -0.4 else ("Lucky Breaks (Low PA)" if luck_val > 0.4 else "Neutral Schedule Luck")
     luck_color = "#4ade80" if luck_val > 0.4 else ("#f43f5e" if luck_val < -0.4 else "#94a3b8")
@@ -942,121 +966,168 @@ with tab_deepdive:
     </div>
     """, unsafe_allow_html=True)
 
-    # Function to render interactive player card with native HTML <details>
-    def render_deepdive_player_group(section_title, player_id_list, slot_label="BN"):
-        st.markdown(f'<div class="section-header">{section_title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_id_list)})</span></div>', unsafe_allow_html=True)
-        if not player_id_list:
-            st.caption("No players assigned in this category.")
-            return
+    # Split Screen: Left (Lineup Dropdowns) | Right (Window-Maximizing Intelligence)
+    col_dd_roster, col_dd_insights = st.columns([1.2, 0.8], gap="medium")
 
-        league_slots = league_info.get("roster_positions", [])
+    with col_dd_roster:
+        def render_deepdive_player_group(section_title, player_id_list, slot_label="BN"):
+            st.markdown(f'<div class="section-header">{section_title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_id_list)})</span></div>', unsafe_allow_html=True)
+            if not player_id_list:
+                st.caption("No players assigned.")
+                return
 
-        for idx, pid in enumerate(player_id_list):
-            p = player_evals.get(pid)
-            if not p:
-                continue
+            league_slots = league_info.get("roster_positions", [])
 
-            if slot_label == "START":
-                raw_slot = league_slots[idx] if idx < len(league_slots) else "FLEX"
-                pos_display = "IDP" if "IDP" in raw_slot else ("DL" if raw_slot in ["DL", "DE", "DT"] else raw_slot)
-            else:
-                pos_display = slot_label
+            for idx, pid in enumerate(player_id_list):
+                p = player_evals.get(pid)
+                if not p:
+                    continue
 
-            rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
-            diff_val = p['value'] - p['redraft_val']
-            diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
+                if slot_label == "START":
+                    raw_slot = league_slots[idx] if idx < len(league_slots) else "FLEX"
+                    pos_display = "IDP" if "IDP" in raw_slot else ("DL" if raw_slot in ["DL", "DE", "DT"] else raw_slot)
+                else:
+                    pos_display = slot_label
 
-            # HTML5 <details> card that preserves the exact main page look while supporting full drop-down details
-            card_html = (
-                f'<details class="player-expand-card">'
-                f'  <summary>'
-                f'      <div style="display: flex; align-items: center; min-width: 0;">'
-                f'          <div class="pos-slot">{pos_display}</div>'
-                f'          <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
-                f'          <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
-                f'              <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">{p["name"]} '
-                f'                  <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
-                f'              </div>'
-                f'              <div style="margin-top: 2px;">'
-                f'                  <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
-                f'                  {rookie_html}'
-                f'                  <span class="badge {p["act_badge"]}">{p["action"]}</span>'
-                f'              </div>'
-                f'          </div>'
-                f'      </div>'
-                f'      <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">'
-                f'          <div style="font-size: 16px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
-                f'          <div style="font-size: 10px; color: #64748b;">Dynasty Index ▾</div>'
-                f'      </div>'
-                f'  </summary>'
-                f'  <div class="player-expand-content">'
-                f'      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px;">'
-                f'          <div style="min-width: 220px; font-size: 12px; line-height: 1.8;">'
-                f'              <strong>2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p["ppg"]} ppg</span> ({p["gp"]} Games Played)<br>'
-                f'              <strong>Dynasty Index:</strong> <span style="color: #38bdf8; font-weight: 700;">{p["value"]:,} pts</span><br>'
-                f'              <strong>Redraft Win-Now:</strong> <span style="color: #94a3b8; font-weight: 700;">{p["redraft_val"]:,} pts</span><br>'
-                f'              <strong>Dynasty Premium:</strong> <span style="color: {diff_color}; font-weight: 700;">{diff_val:+d} pts</span>'
-                f'          </div>'
-                f'          <div style="flex: 1; min-width: 260px; font-size: 12px; line-height: 1.7;">'
-                f'              <strong>Real 2026 NFL Stats:</strong><br>'
-                f'              <span style="color: #38bdf8; font-weight: 600;">{p["stat_line"]}</span><br>'
-                f'              <div style="margin-top: 4px; color: #94a3b8;">'
-                f'                  #{p["number"]} • {p["college"]} • {p["height"]}, {p["weight"]} lbs'
-                f'              </div>'
-                f'              <p style="color: #cbd5e1; font-size: 11px; margin-top: 4px; margin-bottom: 0;">{p["desc"]}</p>'
-                f'          </div>'
-                f'      </div>'
-                f'  </div>'
-                f'</details>'
-            )
-            st.markdown(card_html, unsafe_allow_html=True)
+                rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
+                diff_val = p['value'] - p['redraft_val']
+                diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
 
-    # Render organized exactly like Sleeper & Main Page:
-    render_deepdive_player_group("⚡ Starters", starters, slot_label="START")
-    render_deepdive_player_group("🪑 Bench", bench, slot_label="BN")
-    render_deepdive_player_group("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
-    render_deepdive_player_group("🚕 Taxi Squad", taxi, slot_label="TAXI")
+                # HTML5 <details> with Rotating Arrow to Left of Pos Box
+                card_html = (
+                    f'<details class="player-expand-card">'
+                    f'  <summary>'
+                    f'      <div style="display: flex; align-items: center; min-width: 0;">'
+                    f'          <span class="chevron-indicator">›</span>'
+                    f'          <div class="pos-slot">{pos_display}</div>'
+                    f'          <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                    f'          <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                    f'              <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">{p["name"]} '
+                    f'                  <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                    f'              </div>'
+                    f'              <div style="margin-top: 2px;">'
+                    f'                  <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
+                    f'                  {rookie_html}'
+                    f'                  <span class="badge {p["act_badge"]}">{p["action"]}</span>'
+                    f'              </div>'
+                    f'          </div>'
+                    f'      </div>'
+                    f'      <div style="text-align: right; flex-shrink: 0; margin-left: 8px;">'
+                    f'          <div style="font-size: 15px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
+                    f'          <div style="font-size: 10px; color: #64748b;">Dynasty Index</div>'
+                    f'      </div>'
+                    f'  </summary>'
+                    f'  <div class="player-expand-content">'
+                    f'      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;">'
+                    f'          <div style="min-width: 170px; font-size: 12px; line-height: 1.7;">'
+                    f'              <strong>2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p["ppg"]} ppg</span> ({p["gp"]} GP)<br>'
+                    f'              <strong>Dynasty Index:</strong> <span style="color: #38bdf8; font-weight: 700;">{p["value"]:,} pts</span><br>'
+                    f'              <strong>Redraft Win-Now:</strong> <span style="color: #94a3b8; font-weight: 700;">{p["redraft_val"]:,} pts</span><br>'
+                    f'              <strong>Dynasty Premium:</strong> <span style="color: {diff_color}; font-weight: 700;">{diff_val:+d} pts</span>'
+                    f'          </div>'
+                    f'          <div style="flex: 1; min-width: 210px; font-size: 12px; line-height: 1.6;">'
+                    f'              <strong>Real 2026 NFL Stats:</strong><br>'
+                    f'              <span style="color: #38bdf8; font-weight: 600;">{p["stat_line"]}</span><br>'
+                    f'              <div style="margin-top: 3px; color: #94a3b8; font-size: 11px;">'
+                    f'                  #{p["number"]} • {p["college"]} • {p["height"]}, {p["weight"]} lbs'
+                    f'              </div>'
+                    f'              <p style="color: #cbd5e1; font-size: 11px; margin-top: 4px; margin-bottom: 0;">{p["desc"]}</p>'
+                    f'          </div>'
+                    f'      </div>'
+                    f'  </div>'
+                    f'</details>'
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
 
-    # Dynamic Franchise Strategy
-    st.markdown("---")
-    st.markdown("#### 🧠 Tailored Franchise Action Blueprint")
+        render_deepdive_player_group("⚡ Starters", starters, slot_label="START")
+        render_deepdive_player_group("🪑 Bench", bench, slot_label="BN")
+        render_deepdive_player_group("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
+        render_deepdive_player_group("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
-    my_all_player_objs = [player_evals[p] for p in pids if p in player_evals]
-    my_te_count = len([x for x in my_all_player_objs if x["pos"] == "TE"])
-    my_young_studs = [x["name"] for x in my_all_player_objs if x["value"] >= 650 and x["age"] <= 25]
-    my_veterans = [x["name"] for x in my_all_player_objs if x["age"] >= 28 and x["value"] >= 200]
-    my_dl_studs = [x["name"] for x in my_all_player_objs if x["pos"] in ["DL", "DE", "DT"] and x["value"] >= 350]
+    with col_dd_insights:
+        st.markdown('<div class="section-header">🧠 Window-Maximizing Intelligence</div>', unsafe_allow_html=True)
 
-    strat_col1, strat_col2 = st.columns(2)
+        my_all_player_objs = [player_evals[p] for p in pids if p in player_evals]
+        my_avg_age = my_row["avg_age"]
+        is_rebuilding = "Rebuilding" in my_row["posture"] or my_avg_age < 25.2 or my_row["wins"] <= 1
+        is_competing = "Competing" in my_row["posture"] and my_row["wins"] >= 2
 
-    with strat_col1:
+        # Dynamic Identification of Players Out of Window Sync
+        # e.g., Player in prime right now (age 27-30), but team's runway is 2+ years out
+        out_of_window_players = [
+            x for x in my_all_player_objs 
+            if x["age"] >= 27 and x["value"] >= 350 and is_rebuilding
+        ]
+        
+        young_window_cornerstones = [
+            x for x in my_all_player_objs 
+            if x["age"] <= 24 and x["value"] >= 450
+        ]
+
+        win_now_veterans = [
+            x for x in my_all_player_objs 
+            if x["age"] >= 28 and x["redraft_val"] >= 400
+        ]
+
+        # Strategic Blueprint Card
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+            <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
+            <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
+                {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
+            </div>
+            <p style="font-size: 12px; color: #cbd5e1; margin-top: 4px; margin-bottom: 0;">
+                {'Your core is built for the near future. Keeping players who will age past their prime before 2027 represents wasted value depreciation. Maximize market leverage by trading them today.' if is_rebuilding else 'Your roster is built to win right now. Do not hoard future draft capital at the expense of starting lineup studs.'}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Urgent Window Liquidation Alert (Players in Prime who won't be good when you're ready)
+        if is_rebuilding and out_of_window_players:
+            out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
+            st.markdown(f"""
+            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+                <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
+                <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
+                    These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
+                </div>
+                <ul style="font-size: 12px; color: #cbd5e1; margin-top: 6px; padding-left: 18px;">
+                    {"".join([f"<li>{item}</li>" for item in out_of_window_names])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        elif is_competing and win_now_veterans:
+            st.markdown(f"""
+            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
+                <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
+                <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                    Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Core Assets to Keep (In-Sync with Window)
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #4ade80;">
-            <div style="color: #4ade80; font-size: 13px; font-weight: 700;">🟢 TAILORED ASSETS TO KEEP ({selected_team_name})</div>
-            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
-                Franchise Cornerstones to Build Around:
+            <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
+            <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
+                Players whose prime aligns with your team's championship runway:
             </div>
-            <ul style="font-size: 12px; color: #f1f5f9; margin-top: 6px; padding-left: 18px;">
-                <li><strong>Core Young Studs:</strong> {', '.join(my_young_studs[:5]) if my_young_studs else 'Focus on acquiring top 2027 draft picks to find elite youth.'}</li>
-                <li><strong>TE Premium Assets:</strong> You roster <strong>{my_te_count} tight ends</strong>. In 2TE (+0.25 TEP), never sell starting-caliber TEs for generic flex pieces.</li>
-                <li><strong>Pass Rush Spikes:</strong> {', '.join(my_dl_studs[:3]) if my_dl_studs else 'Target high-sack edge rushers on the trade block.'}</li>
-                <li><strong>Draft Inventory:</strong> You control <strong>{picks_owned_count} picks</strong>. Lock in your 2027 1st rounders.</li>
+            <ul style="font-size: 12px; color: #cbd5e1; margin-top: 6px; padding-left: 18px;">
+                <li><strong>Youth Pillars:</strong> {', '.join([p['name'] for p in young_window_cornerstones[:5]]) if young_window_cornerstones else 'Acquire top 2027 picks to inject young talent.'}</li>
+                <li><strong>2TE Scarcity:</strong> With 16 required TE starters, hold starting TEs under age 27 tightly.</li>
+                <li><strong>Capital Stash:</strong> You control <strong>{picks_owned_count} picks</strong> across 2027–2029.</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
 
-    with strat_col2:
+        # Specific Trade Leverage Plan
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #f43f5e;">
-            <div style="color: #f43f5e; font-size: 13px; font-weight: 700;">🔴 SPECIFIC TRADE TARGETS & LIQUIDATIONS</div>
+        <div class="insight-card" style="border-left: 3px solid #a855f7;">
+            <div style="color: #c084fc; font-size: 12px; font-weight: 700;">🔄 TARGETED LEAGUE TRADE BLUEPRINT</div>
             <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
-                Personalized Trade Plan for Your Roster:
+                {'Target contenders who need win-now scoring. Offer them your older pieces for 2027 1st-rounders to maximize your Toilet Bowl draft positioning (lowest Max PF wins pick 1.01).' if is_rebuilding else 'Target rebuilding teams in the league. Offer your 2027/2028 2nd-round picks to buy starting-lineup difference makers.'}
             </div>
-            <ul style="font-size: 12px; color: #f1f5f9; margin-top: 6px; padding-left: 18px;">
-                <li><strong>Aging Veteran Sell Candidates:</strong> {', '.join(my_veterans[:4]) if my_veterans else 'Your roster is already very young; no urgent aging liquidations required.'}</li>
-                <li><strong>Capital Strategy:</strong> {'Package 2027/2028 2nd-round picks to buy a win-now WR upgrade.' if 'Competing' in my_row['posture'] else 'Sell any remaining veterans for 2027 1st round picks to optimize your toilet bowl pick.'}</li>
-                <li><strong>1QB Market Inefficiency:</strong> Keep at most 2 quarterbacks on your active roster; trade surplus QBs for draft picks.</li>
-            </ul>
         </div>
         """, unsafe_allow_html=True)
 
