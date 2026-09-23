@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS LIQUID GLASS DESIGN SYSTEM ====================
+# ==================== MACOS / IOS LIQUID GLASS & CLEAN TAB ILLUMINATION CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -36,8 +36,17 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Floating Frosted Glass Tab Bar (Clean Focus Rings) */
+    /* Completely Remove Streamlit's Default Tab Container Border/Box */
     div.stTabs {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 24px;
+    }
+    
+    div.stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
         background: rgba(255, 255, 255, 0.02);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
@@ -45,13 +54,7 @@ st.markdown("""
         border-top: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 14px;
         padding: 6px 10px;
-        margin-bottom: 24px;
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
-    }
-    
-    div.stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        background-color: transparent;
     }
 
     div.stTabs [data-baseweb="tab"] {
@@ -79,11 +82,13 @@ st.markdown("""
         box-shadow: none !important;
     }
 
+    /* Subtly Lit Active Tab State */
     div.stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(129, 140, 248, 0.18) 100%) !important;
         color: #38bdf8 !important;
-        border: 1px solid rgba(56, 189, 248, 0.3) !important;
-        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
         outline: none !important;
     }
 
@@ -569,7 +574,6 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                # FIXED SYNTAX ERROR HERE (closed parenthesis instead of bracket)
                 if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
                     traded = True
                     break
