@@ -265,7 +265,6 @@ if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
     st.stop()
 
-# Maps
 user_map = {
     u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
     for u in users
@@ -544,7 +543,6 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    # Simulation Logic
     weeks_played = max(current_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
@@ -1221,14 +1219,14 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL (FIXED SEED & SAFETIES) ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL (CLEAN UNINDENTED HTML) ====================
 with tab_playoffs:
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
     st.caption("Official standings sorted by Win-Loss record, then Points For (PF). Seeds 1–6 advance to the playoffs. Seeds 7 & 8 play in the Toilet Bowl for Pick 1.01.")
 
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
-
     is_proj_mode = "Projected" in standings_mode
+
     if is_proj_mode:
         active_standings = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
     else:
@@ -1254,35 +1252,26 @@ with tab_playoffs:
             p_seed = row.get("proj_seed", s_num)
 
             if is_proj_mode:
-                stat_display = f"""
-                <div style="font-size: 11px; color: #38bdf8; margin-top: 3px;">
-                    <strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}
-                </div>
-                <div style="font-size: 10px; color: #64748b;">(Current Record: {row['wins']}W - {row['losses']}L | {row['points_for']:.1f} PF)</div>
-                """
+                stat_display = f'<div style="font-size: 11px; color: #38bdf8; margin-top: 3px;"><strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}</div><div style="font-size: 10px; color: #64748b;">(Current Record: {row["wins"]}W - {row["losses"]}L | {row["points_for"]:.1f} PF)</div>'
             else:
-                stat_display = f"""
-                <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
-                    <strong>Current Record:</strong> {row['wins']}W - {row['losses']}L • <strong>Total PF:</strong> {row['points_for']:.1f} • <strong>Max PF:</strong> {row['max_pf']:.1f}
-                </div>
-                <div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L | Proj Seed #{p_seed})</div>
-                """
+                stat_display = f'<div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><strong>Current Record:</strong> {row["wins"]}W - {row["losses"]}L • <strong>Total PF:</strong> {row["points_for"]:.1f} • <strong>Max PF:</strong> {row["max_pf"]:.1f}</div><div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L | Proj Seed #{p_seed})</div>'
 
-            st.markdown(f"""
-            <div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span style="font-size: 14px; font-weight: 800; color: #38bdf8; margin-right: 6px;">#{s_num}</span>
-                        <strong style="font-size: 14px; color: #f1f5f9;">{row['team_name']}</strong> {bye_tag}
-                        {stat_display}
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{row['odds_2026']}%</div>
-                        <div style="font-size: 10px; color: #64748b;">Title Odds</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            card_row = (
+                f'<div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">'
+                f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+                f'<div>'
+                f'<span style="font-size: 14px; font-weight: 800; color: #38bdf8; margin-right: 6px;">#{s_num}</span>'
+                f'<strong style="font-size: 14px; color: #f1f5f9;">{row["team_name"]}</strong> {bye_tag}'
+                f'{stat_display}'
+                f'</div>'
+                f'<div style="text-align: right;">'
+                f'<div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{row["odds_2026"]}%</div>'
+                f'<div style="font-size: 10px; color: #64748b;">Title Odds</div>'
+                f'</div>'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(card_row, unsafe_allow_html=True)
 
     with c_toilet:
         toilet_header = "🚽 Projected Toilet Bowl (Seeds 7 & 8 Finishers)" if is_proj_mode else "🚽 Current Toilet Bowl (Teams in Seeds 7 & 8)"
@@ -1300,39 +1289,39 @@ with tab_playoffs:
             pick_101_team = team_8
             pick_102_team = team_7
 
-        st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #facc15; margin-bottom: 12px;">
-            <div style="color: #facc15; font-size: 12px; font-weight: 700;">TOILET BOWL (PICK 1.01 DETERMINATION)</div>
-            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
-                Combatants: <strong>{team_7['team_name']}</strong> & <strong>{team_8['team_name']}</strong>.
-                Per league rule: <strong>The lower Max PF between these 2 teams wins Pick 1.01</strong>:
-            </div>
-            <div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="badge badge-rising">WINNER ➔ PICK 1.01</span>
-                        <strong style="color: #f8fafc; font-size: 13px;">{pick_101_team['team_name']}</strong>
-                        <div style="font-size: 11px; color: #94a3b8;">
-                            {'Proj Final: ' + str(pick_101_team['proj_wins']) + 'W-' + str(pick_101_team['proj_losses']) + 'L' if is_proj_mode else 'Current: ' + str(pick_101_team['wins']) + 'W-' + str(pick_101_team['losses']) + 'L'}
-                        </div>
-                    </div>
-                    <span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_team[mpf_col]:.1f} Max PF</span>
-                </div>
-            </div>
-            <div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="badge badge-hold">RUNNER-UP ➔ PICK 1.02</span>
-                        <strong style="color: #f8fafc; font-size: 13px;">{pick_102_team['team_name']}</strong>
-                        <div style="font-size: 11px; color: #94a3b8;">
-                            {'Proj Final: ' + str(pick_102_team['proj_wins']) + 'W-' + str(pick_102_team['proj_losses']) + 'L' if is_proj_mode else 'Current: ' + str(pick_102_team['wins']) + 'W-' + str(pick_102_team['losses']) + 'L'}
-                        </div>
-                    </div>
-                    <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_team[mpf_col]:.1f} Max PF</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        p1_rec = f"Proj Final: {pick_101_team['proj_wins']}W-{pick_101_team['proj_losses']}L" if is_proj_mode else f"Current: {pick_101_team['wins']}W-{pick_101_team['losses']}L"
+        p2_rec = f"Proj Final: {pick_102_team['proj_wins']}W-{pick_102_team['proj_losses']}L" if is_proj_mode else f"Current: {pick_102_team['wins']}W-{pick_102_team['losses']}L"
+
+        toilet_summary = (
+            f'<div class="insight-card" style="border-left: 4px solid #facc15; margin-bottom: 12px;">'
+            f'<div style="color: #facc15; font-size: 12px; font-weight: 700;">TOILET BOWL (PICK 1.01 DETERMINATION)</div>'
+            f'<div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">'
+            f'Combatants: <strong>{team_7["team_name"]}</strong> & <strong>{team_8["team_name"]}</strong>. '
+            f'Per league rule: <strong>The lower Max PF between these 2 teams wins Pick 1.01</strong>:'
+            f'</div>'
+            f'<div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
+            f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+            f'<div>'
+            f'<span class="badge badge-rising">WINNER ➔ PICK 1.01</span>'
+            f'<strong style="color: #f8fafc; font-size: 13px;">{pick_101_team["team_name"]}</strong>'
+            f'<div style="font-size: 11px; color: #94a3b8;">{p1_rec}</div>'
+            f'</div>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_team[mpf_col]:.1f} Max PF</span>'
+            f'</div>'
+            f'</div>'
+            f'<div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
+            f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+            f'<div>'
+            f'<span class="badge badge-hold">RUNNER-UP ➔ PICK 1.02</span>'
+            f'<strong style="color: #f8fafc; font-size: 13px;">{pick_102_team["team_name"]}</strong>'
+            f'<div style="font-size: 11px; color: #94a3b8;">{p2_rec}</div>'
+            f'</div>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_team[mpf_col]:.1f} Max PF</span>'
+            f'</div>'
+            f'</div>'
+            f'</div>'
+        )
+        st.markdown(toilet_summary, unsafe_allow_html=True)
 
         board_header = "🎯 Projected 2027 Round 1 Draft Order (End-of-Season Simulation)" if is_proj_mode else "🎯 Projected 2027 Round 1 Draft Order (Current Standings)"
         st.markdown(f'<div class="section-header">{board_header}</div>', unsafe_allow_html=True)
@@ -1340,23 +1329,24 @@ with tab_playoffs:
         playoff_six_sorted = active_standings.iloc[:6].sort_values(by=mpf_col, ascending=True).reset_index(drop=True)
         
         full_proj_order = [
-            (pick_101_team['team_name'], pick_101_team[mpf_col], "Toilet Bowl Winner (Lowest Max PF)"),
-            (pick_102_team['team_name'], pick_102_team[mpf_col], "Toilet Bowl Runner-Up")
+            (pick_101_team['team_name'], pick_101_team[mpf_col]),
+            (pick_102_team['team_name'], pick_102_team[mpf_col])
         ]
         for p_row in playoff_six_sorted.itertuples():
-            full_proj_order.append((p_row.team_name, getattr(p_row, mpf_col), "Playoff Seed"))
+            full_proj_order.append((p_row.team_name, getattr(p_row, mpf_col)))
 
-        for slot_idx, (t_name, mpf_val, reason) in enumerate(full_proj_order, 1):
+        for slot_idx, (t_name, mpf_val) in enumerate(full_proj_order, 1):
             is_me = t_name == selected_team_name
             highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
-            st.markdown(f"""
-            <div class="odds-row" style="{highlight_border}; padding: 6px 12px;">
-                <div style="font-size: 12px; font-weight: 700; color: {'#38bdf8' if is_me else '#f8fafc'};">
-                    <span style="color: #64748b; margin-right: 8px;">Pick 1.0{slot_idx}</span> {t_name}
-                </div>
-                <div style="font-size: 11px; font-weight: 600; color: #94a3b8;">{mpf_val:.1f} Max PF</div>
-            </div>
-            """, unsafe_allow_html=True)
+            order_row = (
+                f'<div class="odds-row" style="{highlight_border}; padding: 6px 12px;">'
+                f'<div style="font-size: 12px; font-weight: 700; color: {"#38bdf8" if is_me else "#f8fafc"};">'
+                f'<span style="color: #64748b; margin-right: 8px;">Pick 1.0{slot_idx}</span> {t_name}'
+                f'</div>'
+                f'<div style="font-size: 11px; font-weight: 600; color: #94a3b8;">{mpf_val:.1f} Max PF</div>'
+                f'</div>'
+            )
+            st.markdown(order_row, unsafe_allow_html=True)
 
 # ==================== TAB 5: TRADES & AI IMPACT ANALYZER ====================
 with tab_trades:
