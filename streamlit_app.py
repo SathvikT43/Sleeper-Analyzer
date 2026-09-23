@@ -155,26 +155,6 @@ st.markdown("""
     .rank-mid { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
     .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
 
-    /* Trade Card Styles */
-    .trade-pod {
-        background: #11151f;
-        border: 1px solid #1c2438;
-        border-radius: 12px;
-        padding: 16px;
-        height: 100%;
-    }
-    .trade-pill-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #0b0e15;
-        border: 1px solid #1a2233;
-        border-radius: 6px;
-        padding: 6px 10px;
-        margin-top: 4px;
-        font-size: 12px;
-    }
-
     details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
@@ -511,7 +491,7 @@ for r in rosters:
             if not traded:
                 team_picks[rid].append({
                     "year": yr, "round": rd, "original_rid": rid,
-                    "desc": f"{yr} Round {rd} Pick",
+                    "desc": f"{yr} Rd {rd} (Team Pick)",
                     "value": int(pick_value_base[rd])
                 })
 
@@ -526,11 +506,10 @@ for tp in traded_picks:
     if new_owner in team_picks:
         team_picks[new_owner].append({
             "year": yr, "round": rd, "original_rid": orig_roster,
-            "desc": f"{yr} Round {rd} (via {roster_owner_map.get(orig_roster, 'Team')})",
+            "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
             "value": int(pick_value_base.get(rd, 200))
         })
 
-# Map: original_roster_id -> current_owner_roster_id for 2027 Round 1 picks
 pick_2027_rd1_owner = {}
 for r in rosters:
     pick_2027_rd1_owner[r["roster_id"]] = r["roster_id"]
@@ -574,7 +553,6 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    # Simulation Logic
     weeks_played = max(current_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
@@ -1393,14 +1371,14 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (POLISHED EXECUTIVE PODS) ====================
+# ==================== TAB 5: TRADES & CALCULATOR (ROSTER AUDIT STYLE SEPARATION) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals. Analyze immediate value differentials, championship timeline sync, and positional room shifts.")
+    st.caption("Construct multi-asset trade proposals. Separate players and draft picks independently to evaluate equity.")
 
-    # Side-by-Side Trade Pods
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
+    # --- FRANCHISE A ---
     with c_pod_a:
         st.markdown("""
         <div style="border-top: 3px solid #38bdf8; padding-top: 6px; margin-bottom: 8px;">
@@ -1413,19 +1391,24 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Build clean combined asset catalog
-        asset_options_a = {}
+        # Separate Player Catalog
+        player_options_a = {}
         for p in p_a:
             p_obj = evaluate_player(p, all_players.get(p, {}))
-            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
-            asset_options_a[label] = ("PLAYER", p, p_obj["value"], p_obj)
+            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            player_options_a[label] = (p, p_obj["value"], p_obj)
 
+        sel_players_a = st.multiselect("Search players sent by " + ta, list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...")
+
+        # Separate Pick Catalog
+        pick_options_a = {}
         for pk in my_picks_a:
-            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
-            asset_options_a[label] = ("PICK", pk, pk["value"], None)
+            label = f"{pk['desc']} • {pk['value']:,} pts"
+            pick_options_a[label] = (pk, pk["value"])
 
-        selected_assets_a = st.multiselect("Select Players & Picks sent by " + ta, list(asset_options_a.keys()), key="sel_assets_a", placeholder="Choose players & picks to trade...")
-        val_a = sum(asset_options_a[item][2] for item in selected_assets_a)
+        sel_picks_a = st.multiselect("Search draft picks sent by " + ta, list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...")
+
+        val_a = sum(player_options_a[item][1] for item in sel_players_a) + sum(pick_options_a[item][1] for item in sel_picks_a)
 
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
@@ -1434,6 +1417,7 @@ with tab_trades:
         </div>
         """, unsafe_allow_html=True)
 
+    # --- FRANCHISE B ---
     with c_pod_b:
         st.markdown("""
         <div style="border-top: 3px solid #c084fc; padding-top: 6px; margin-bottom: 8px;">
@@ -1446,18 +1430,22 @@ with tab_trades:
         p_b = r_b.get("players", []) or []
         my_picks_b = team_picks.get(r_b["roster_id"], [])
 
-        asset_options_b = {}
+        player_options_b = {}
         for p in p_b:
             p_obj = evaluate_player(p, all_players.get(p, {}))
-            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
-            asset_options_b[label] = ("PLAYER", p, p_obj["value"], p_obj)
+            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            player_options_b[label] = (p, p_obj["value"], p_obj)
 
+        sel_players_b = st.multiselect("Search players sent by " + tb, list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...")
+
+        pick_options_b = {}
         for pk in my_picks_b:
-            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
-            asset_options_b[label] = ("PICK", pk, pk["value"], None)
+            label = f"{pk['desc']} • {pk['value']:,} pts"
+            pick_options_b[label] = (pk, pk["value"])
 
-        selected_assets_b = st.multiselect("Select Players & Picks sent by " + tb, list(asset_options_b.keys()), key="sel_assets_b", placeholder="Choose players & picks to receive...")
-        val_b = sum(asset_options_b[item][2] for item in selected_assets_b)
+        sel_picks_b = st.multiselect("Search draft picks sent by " + tb, list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...")
+
+        val_b = sum(player_options_b[item][1] for item in sel_players_b) + sum(pick_options_b[item][1] for item in sel_picks_b)
 
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
@@ -1466,7 +1454,7 @@ with tab_trades:
         </div>
         """, unsafe_allow_html=True)
 
-    # Visual Equity Bar (Apple / Linear Progress Meter)
+    # Equity Bar Meter
     st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
     total_trade_volume = max(val_a + val_b, 1)
     pct_a = int((val_a / total_trade_volume) * 100)
@@ -1538,29 +1526,29 @@ with tab_trades:
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            # Subtract outgoing assets
-            for item in selected_assets_a:
-                kind, payload, val, p_obj = asset_options_a[item]
-                if kind == "PLAYER":
-                    p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
-                    if p_cat in sim_pos_val:
-                        sim_pos_val[p_cat] -= val
-                    sim_pos_val["Overall"] -= val
-                else:
-                    sim_pos_val["Picks"] -= val
-                    sim_pos_val["Overall"] -= val
+            # Subtract outgoing
+            for item in sel_players_a:
+                _, val, p_obj = player_options_a[item]
+                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                if p_cat in sim_pos_val:
+                    sim_pos_val[p_cat] -= val
+                sim_pos_val["Overall"] -= val
+            for item in sel_picks_a:
+                _, val = pick_options_a[item]
+                sim_pos_val["Picks"] -= val
+                sim_pos_val["Overall"] -= val
 
-            # Add incoming assets
-            for item in selected_assets_b:
-                kind, payload, val, p_obj = asset_options_b[item]
-                if kind == "PLAYER":
-                    p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
-                    if p_cat in sim_pos_val:
-                        sim_pos_val[p_cat] += val
-                    sim_pos_val["Overall"] += val
-                else:
-                    sim_pos_val["Picks"] += val
-                    sim_pos_val["Overall"] += val
+            # Add incoming
+            for item in sel_players_b:
+                _, val, p_obj = player_options_b[item]
+                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                if p_cat in sim_pos_val:
+                    sim_pos_val[p_cat] += val
+                sim_pos_val["Overall"] += val
+            for item in sel_picks_b:
+                _, val = pick_options_b[item]
+                sim_pos_val["Picks"] += val
+                sim_pos_val["Overall"] += val
 
             shift_cols = st.columns(4)
             checked_cats = ["Overall", "QB", "RB", "WR", "TE", "DL", "IDP", "Picks"]
