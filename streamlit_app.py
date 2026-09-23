@@ -9,13 +9,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== EXECUTIVE POLISHED DARK THEME CSS ====================
+# ==================== MACOS / IOS LIQUID GLASS THEME CSS ====================
 st.markdown("""
 <style>
     .stApp {
-        background-color: #07090e;
+        background-color: #06080d;
         color: #f1f5f9;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
     }
     
     div[data-baseweb="select"] input,
@@ -30,28 +30,39 @@ st.markdown("""
         cursor: pointer !important;
     }
 
+    /* Liquid Glass Card Effect */
     .metric-card {
-        background: linear-gradient(135deg, #0e131f 0%, #111622 100%);
-        border: 1px solid #1e2638;
-        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
         padding: 16px 20px;
         margin-bottom: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .metric-card:hover {
+        border-color: rgba(56, 189, 248, 0.3);
     }
 
     .lineup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #0c1018;
-        border: 1px solid #161f30;
-        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
         padding: 8px 14px;
         margin-bottom: 6px;
-        transition: border-color 0.2s ease;
+        transition: all 0.2s ease;
     }
     .lineup-row:hover {
-        border-color: #2b3954;
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(56, 189, 248, 0.25);
     }
 
     .pos-slot {
@@ -62,11 +73,11 @@ st.markdown("""
         font-weight: 800;
         color: #94a3b8;
         text-align: center;
-        background: #151d2c;
-        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 7px;
         margin-right: 10px;
         flex-shrink: 0;
-        border: 1px solid #232f46;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .rank-slot {
@@ -85,38 +96,41 @@ st.markdown("""
         border-radius: 50%;
         object-fit: cover;
         background: #19202f;
-        border: 1px solid #2b3852;
+        border: 1px solid rgba(255, 255, 255, 0.15);
         margin-right: 12px;
         flex-shrink: 0;
     }
 
     .badge {
         padding: 2px 7px;
-        border-radius: 5px;
+        border-radius: 6px;
         font-size: 9px;
         font-weight: 700;
         display: inline-block;
         margin-right: 4px;
     }
-    .badge-rookie { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
-    .badge-rising { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.35); }
-    .badge-prime { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.35); }
-    .badge-descending { background: rgba(251, 146, 60, 0.15); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.35); }
-    .badge-unc { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35); }
+    .badge-rookie { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-rising { background: rgba(74, 222, 128, 0.12); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+    .badge-prime { background: rgba(129, 140, 248, 0.12); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.3); }
+    .badge-descending { background: rgba(251, 146, 60, 0.12); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.3); }
+    .badge-unc { background: rgba(244, 63, 94, 0.12); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
     
-    .badge-buy { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35); }
-    .badge-sell { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
-    .badge-hold { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
-    .badge-owner { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.35); }
-    .badge-fa { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.35); }
+    .badge-buy { background: rgba(34, 197, 94, 0.12); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .badge-sell { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-hold { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); }
+    .badge-owner { background: rgba(168, 85, 247, 0.12); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-fa { background: rgba(100, 116, 139, 0.12); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); }
 
     .insight-card {
-        background: linear-gradient(135deg, #0e131f 0%, #111622 100%);
-        border: 1px solid #1e2638;
-        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.025);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
         padding: 16px 18px;
         margin-bottom: 14px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
     }
 
     .odds-row {
@@ -124,9 +138,9 @@ st.markdown("""
         align-items: center;
         justify-content: space-between;
         padding: 7px 12px;
-        background: #0b0f17;
-        border: 1px solid #172031;
-        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 9px;
         margin-bottom: 5px;
     }
 
@@ -143,9 +157,9 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #0c1018;
-        border: 1px solid #182236;
-        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
         padding: 9px 14px;
         margin-bottom: 7px;
     }
@@ -156,23 +170,24 @@ st.markdown("""
         padding: 4px 0;
         font-size: 12px;
         font-weight: 800;
-        border-radius: 6px;
+        border-radius: 7px;
     }
-    .rank-top { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
-    .rank-mid { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
-    .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
+    .rank-top { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.35); }
+    .rank-mid { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+    .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35); }
 
     details.player-expand-card {
-        background: #0c1018;
-        border: 1px solid #161f30;
-        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
         margin-bottom: 6px;
         overflow: hidden;
-        transition: border-color 0.15s ease, background 0.15s ease;
+        transition: border-color 0.2s ease, background 0.2s ease;
     }
     details.player-expand-card[open] {
-        border-color: #38bdf8;
-        background: #111723;
+        border-color: rgba(56, 189, 248, 0.4);
+        background: rgba(255, 255, 255, 0.04);
     }
     details.player-expand-card summary {
         list-style: none;
@@ -203,8 +218,8 @@ st.markdown("""
 
     .player-expand-content {
         padding: 12px 16px 14px 16px;
-        border-top: 1px solid #1a2438;
-        background: #080b12;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(0, 0, 0, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1031,7 +1046,7 @@ with tab_deepdive:
 
     d1, d2, d3 = st.columns(3)
     d1.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #38bdf8;">
+    <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">STRATEGIC POSTURE</div>
         <div style="font-size: 22px; font-weight: 800; color: #f8fafc; margin: 2px 0;">{my_row['posture']}</div>
         <div style="font-size: 11px; color: #cbd5e1;">{my_row['posture_desc']}</div>
@@ -1039,7 +1054,7 @@ with tab_deepdive:
     """, unsafe_allow_html=True)
 
     d2.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid {luck_color};">
+    <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">SCHEDULE LUCK RATING</div>
         <div style="font-size: 22px; font-weight: 800; color: {luck_color}; margin: 2px 0;">{luck_val:+.2f}</div>
         <div style="font-size: 11px; color: #cbd5e1;">{luck_desc} (PF: {my_row['points_for']:.1f} • PA: {my_row['points_against']:.1f})</div>
@@ -1048,7 +1063,7 @@ with tab_deepdive:
 
     picks_owned_count = len(team_picks.get(selected_rid, []))
     d3.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #fbbf24;">
+    <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">FUTURE CAPITAL ASSETS</div>
         <div style="font-size: 22px; font-weight: 800; color: #fbbf24; margin: 2px 0;">{picks_owned_count} Picks Owned</div>
         <div style="font-size: 11px; color: #cbd5e1;">Value: {my_row['pick_value']:,} pts across 2027–2029</div>
@@ -1183,7 +1198,7 @@ with tab_deepdive:
         ]
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+        <div class="insight-card" style="border-left: 4px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
             <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
                 {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
@@ -1197,7 +1212,7 @@ with tab_deepdive:
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+            <div class="insight-card" style="border-left: 4px solid #f43f5e;">
                 <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
                 <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                     These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
@@ -1209,7 +1224,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
         elif is_competing and win_now_veterans:
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
+            <div class="insight-card" style="border-left: 4px solid #fbbf24;">
                 <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
                 <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                     Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
@@ -1218,7 +1233,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #4ade80;">
+        <div class="insight-card" style="border-left: 4px solid #4ade80;">
             <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
             <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                 Players whose prime aligns with your team's championship runway:
@@ -1261,7 +1276,7 @@ with tab_playoffs:
             s_num = idx + 1
             bye_tag = '<span class="badge badge-rising">FIRST ROUND BYE</span>' if s_num <= 2 else '<span class="badge badge-hold">QUARTERFINALS</span>'
             is_me = row.get('team_name') == selected_team_name
-            highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #1c2333; background: #11151f;"
+            highlight_border = "border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.04);" if is_me else ""
             
             p_wins = row.get("proj_wins", row.get("wins", 0))
             p_loss = row.get("proj_losses", row.get("losses", 0))
@@ -1327,7 +1342,7 @@ with tab_playoffs:
             f'Combatants: <strong>{team_7.get("team_name")}</strong> & <strong>{team_8.get("team_name")}</strong>. '
             f'Per league rule: <strong>The lower Max PF between these 2 teams wins Pick 1.01</strong>:'
             f'</div>'
-            f'<div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
+            f'<div style="margin-top: 10px; padding: 8px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">'
             f'<div style="display: flex; justify-content: space-between; align-items: center;">'
             f'<div>'
             f'<span class="badge badge-rising">WINNER ➔ PICK 1.01</span>'
@@ -1337,7 +1352,7 @@ with tab_playoffs:
             f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_orig_team.get(mpf_key, 0.0):.1f} Max PF</span>'
             f'</div>'
             f'</div>'
-            f'<div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
+            f'<div style="margin-top: 6px; padding: 8px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">'
             f'<div style="display: flex; justify-content: space-between; align-items: center;">'
             f'<div>'
             f'<span class="badge badge-hold">RUNNER-UP ➔ PICK 1.02</span>'
@@ -1369,7 +1384,7 @@ with tab_playoffs:
             is_traded = curr_holder_rid != orig_rid
             
             is_me = curr_holder_name == selected_team_name
-            highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
+            highlight_border = "border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.04);" if is_me else ""
             
             if is_traded:
                 pick_owner_text = f"{curr_holder_name} <span style='font-size: 11px; color: #38bdf8; font-weight: normal;'>(via {orig_tname})</span>"
@@ -1386,18 +1401,18 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (LIQUID GLASS EDITORIAL) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
     st.caption("Construct multi-asset trade proposals. Select players and draft picks independently to evaluate equity.")
 
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
-    # --- FRANCHISE A ---
+    # --- LEFT POD: YOU SEND ---
     with c_pod_a:
         st.markdown("""
-        <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #38bdf8; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">YOU SEND (OUTGOING ASSETS)</div>
+        <div style="background: rgba(255,255,255,0.025); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); border-top: 3px solid #38bdf8; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);">
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 8px;">YOU SEND (OUTGOING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         ta = st.selectbox("Select Your Franchise", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
@@ -1424,18 +1439,18 @@ with tab_trades:
         val_a = sum(player_options_a[item][1] for item in sel_players_a) + sum(pick_options_a[item][1] for item in sel_picks_a)
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 9px; padding: 10px 14px; margin-top: 12px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL OUTGOING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
         </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # --- FRANCHISE B ---
+    # --- RIGHT POD: YOU RECEIVE ---
     with c_pod_b:
         st.markdown("""
-        <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #c084fc; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">YOU RECEIVE (INCOMING ASSETS)</div>
+        <div style="background: rgba(255,255,255,0.025); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); border-top: 3px solid #c084fc; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);">
+            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 8px;">YOU RECEIVE (INCOMING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         tb = st.selectbox("Select Trade Partner", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
@@ -1462,7 +1477,7 @@ with tab_trades:
         val_b = sum(player_options_b[item][1] for item in sel_players_b) + sum(pick_options_b[item][1] for item in sel_picks_b)
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 9px; padding: 10px 14px; margin-top: 12px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL INCOMING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
         </div>
@@ -1481,13 +1496,13 @@ with tab_trades:
         status_label = f"+{delta:,} pts Surplus (You Win)" if delta >= 0 else f"{delta:,} pts Deficit (You Lose)"
 
         st.markdown(f"""
-        <div style="background: #11151f; border: 1px solid #1c2438; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
+        <div class="insight-card" style="padding: 14px 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; margin-bottom: 8px;">
                 <span style="color: #38bdf8;">You Send: {val_a:,} pts ({pct_a}%)</span>
                 <span style="color: {delta_color}; font-size: 13px;">{status_label}</span>
                 <span style="color: #c084fc;">You Receive: {val_b:,} pts ({pct_b}%)</span>
             </div>
-            <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #1a2233;">
+            <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.06);">
                 <div style="width: {pct_a}%; background: #38bdf8;"></div>
                 <div style="width: {pct_b}%; background: #c084fc;"></div>
             </div>
