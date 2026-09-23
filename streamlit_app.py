@@ -18,8 +18,16 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
     
-    div[data-baseweb="select"] input {
+    /* COMPLETELY DISABLE TYPING IN SELECTBOXES */
+    div[data-baseweb="select"] input,
+    .stSelectbox input,
+    input[aria-autocomplete="list"] {
+        pointer-events: none !important;
         caret-color: transparent !important;
+        user-select: none !important;
+        cursor: pointer !important;
+    }
+    div[data-baseweb="select"] {
         cursor: pointer !important;
     }
 
@@ -125,7 +133,6 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
-    /* Native Interactive Dropdown Player Card */
     details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
@@ -151,7 +158,6 @@ st.markdown("""
         display: none;
     }
 
-    /* Rotating Arrow Indicator */
     .chevron-indicator {
         font-size: 14px;
         font-weight: 800;
@@ -414,7 +420,6 @@ def evaluate_player(pid, p_info):
     else:
         action, act_badge = "HOLD / DEPTH", "badge-hold"
 
-    # Polished Dynasty Scouting Report Description
     full_name = p_info.get('full_name') or f"Player {pid}"
     scout_core = " ".join(scout_fragments)
     if dynasty_val >= 750:
@@ -993,7 +998,6 @@ with tab_deepdive:
                 diff_val = p['value'] - p['redraft_val']
                 diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
 
-                # HTML5 <details> with Rotating Arrow to Left of Pos Box
                 card_html = (
                     f'<details class="player-expand-card">'
                     f'  <summary>'
@@ -1052,8 +1056,6 @@ with tab_deepdive:
         is_rebuilding = "Rebuilding" in my_row["posture"] or my_avg_age < 25.2 or my_row["wins"] <= 1
         is_competing = "Competing" in my_row["posture"] and my_row["wins"] >= 2
 
-        # Dynamic Identification of Players Out of Window Sync
-        # e.g., Player in prime right now (age 27-30), but team's runway is 2+ years out
         out_of_window_players = [
             x for x in my_all_player_objs 
             if x["age"] >= 27 and x["value"] >= 350 and is_rebuilding
@@ -1069,7 +1071,6 @@ with tab_deepdive:
             if x["age"] >= 28 and x["redraft_val"] >= 400
         ]
 
-        # Strategic Blueprint Card
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
@@ -1082,7 +1083,6 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-        # Urgent Window Liquidation Alert (Players in Prime who won't be good when you're ready)
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
@@ -1106,7 +1106,6 @@ with tab_deepdive:
             </div>
             """, unsafe_allow_html=True)
 
-        # Core Assets to Keep (In-Sync with Window)
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #4ade80;">
             <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
@@ -1121,7 +1120,6 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-        # Specific Trade Leverage Plan
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #a855f7;">
             <div style="color: #c084fc; font-size: 12px; font-weight: 700;">🔄 TARGETED LEAGUE TRADE BLUEPRINT</div>
