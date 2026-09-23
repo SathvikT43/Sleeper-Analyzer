@@ -107,7 +107,6 @@ st.markdown("""
 BASE_URL = "https://api.sleeper.app/v1"
 PERMANENT_LEAGUE_ID = "1312141303219249152"
 
-# Sidebar league controller
 st.sidebar.title("⚡ League Controls")
 league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
 
@@ -219,30 +218,29 @@ def evaluate_player(pid, p_info):
     }
 
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
-# Baseline pick scale
 pick_value_base = {1: 650, 2: 320, 3: 140}
 
-# 1. Project draft order by Max PF (Lowest Max PF gets 1.01 in Toilet Bowl format)
+# Projected draft order by Max PF (Lowest Max PF gets 1.01 in Toilet Bowl format)
 max_pf_sorted = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
 projected_pick_slot = {r["roster_id"]: idx + 1 for idx, r in enumerate(max_pf_sorted)}
 
-# 2. Build full pick ownership (2027 to 2029)
+# Build full pick ownership (2027 to 2029)
 team_picks = {r["roster_id"]: [] for r in rosters}
 for r in rosters:
     rid = r["roster_id"]
     for yr in [2027, 2028, 2029]:
+        yr_short = str(yr)[2:]
         for rd in [1, 2, 3]:
-            # Check if this original pick was traded
             traded = False
             for tp in traded_picks:
-                if tp.get("season") == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
+                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
                     traded = True
                     break
             if not traded:
                 proj_slot = projected_pick_slot.get(rid, 4)
                 team_picks[rid].append({
                     "year": yr, "round": rd, "original_rid": rid,
-                    "desc": f"{yr} Rd {rd} (Proj {yr[2:]}.0{proj_slot})",
+                    "desc": f"{yr} Rd {rd} (Proj '{yr_short}.0{proj_slot})",
                     "proj_slot": proj_slot,
                     "value": int(pick_value_base[rd] * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
                 })
@@ -251,13 +249,17 @@ for r in rosters:
 for tp in traded_picks:
     new_owner = tp.get("owner_id")
     orig_roster = tp.get("roster_id")
-    yr = int(tp.get("season", 2027))
+    try:
+        yr = int(tp.get("season", 2027))
+    except Exception:
+        yr = 2027
+    yr_short = str(yr)[2:]
     rd = int(tp.get("round", 1))
     proj_slot = projected_pick_slot.get(orig_roster, 4)
     if new_owner in team_picks:
         team_picks[new_owner].append({
             "year": yr, "round": rd, "original_rid": orig_roster,
-            "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')} (Proj {yr[2:]}.0{proj_slot})",
+            "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')} (Proj '{yr_short}.0{proj_slot})",
             "proj_slot": proj_slot,
             "value": int(pick_value_base.get(rd, 200) * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
         })
@@ -281,12 +283,11 @@ for r in rosters:
     wins = r.get("settings", {}).get("wins", 0)
     losses = r.get("settings", {}).get("losses", 0)
 
-    # ACCURATE CHAMPIONSHIP ODDS (Combines current win rate + scoring + starter strength)
+    # Realistic Championship Odds Formula
     win_pct = wins / max(wins + losses, 1)
-    # A team with 0 wins takes a heavy penalty for this year's title odds
-    title_score = (win_pct * 40.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.002)
+    title_score = (win_pct * 45.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.001)
     if wins == 0 and current_week >= 2:
-        title_score *= 0.35  # Realistic 0-2 start discount
+        title_score *= 0.30  # Strong discount for starting 0-2
 
     league_stats.append({
         "roster_id": rid,
@@ -310,8 +311,7 @@ df_league["rank_pts"] = df_league["points_for"].rank(ascending=False, method="mi
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
 df_league["rank_standings"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
 
-# Calibrate realistic Title Odds summing to 100%
-tot_title_score = df_league["title_score"].sum()
+tot_title_score = max(df_league["title_score"].sum(), 1.0)
 df_league["real_title_odds"] = ((df_league["title_score"] / tot_title_score) * 100).round(1)
 
 # ==================== HEADER & SELECTOR ====================
@@ -336,7 +336,7 @@ tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
     "📜 Trades & Calculator"
 ])
 
-# ==================== TAB 1: SPLIT SCREEN (ROSTER + INSIGHTS) ====================
+# ==================== TAB 1: SPLIT SCREEN ====================
 with tab_overview:
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
@@ -378,7 +378,7 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split Screen
+    # Split Screen (Lineup Left | Intelligence Right)
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
     with col_roster:
@@ -394,7 +394,6 @@ with tab_overview:
                 if not p:
                     continue
                 
-                # Format Slot Label
                 if slot_label == "START":
                     raw_slot = league_slots[idx] if idx < len(league_slots) else "FLEX"
                     pos_display = "IDP" if "IDP" in raw_slot else ("DL" if raw_slot in ["DL", "DE", "DT"] else raw_slot)
@@ -446,7 +445,6 @@ with tab_overview:
             prime_window = "2026 (Closing Window)"
             strategy_text = "Sell players past age 28 for future 1sts before values fall."
 
-        # Realistic Odds (Accounting for 0-2 Start)
         real_title = my_row["real_title_odds"]
         playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["rank_standings"] <= 4 else 75)
 
@@ -458,7 +456,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # Realistic Odds
+        # Realistic Odds Card
         st.markdown(f"""
         <div class="insight-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -471,7 +469,7 @@ with tab_overview:
                     <div style="font-size: 22px; font-weight: 800; color: {'#38bdf8' if real_title >= 15 else '#f43f5e'};">{real_title}%</div>
                 </div>
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects current 0-2 hole, starting points per game, and 8-team competition.</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects current 0-2 start, weekly points, and 8-team competition.</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -479,8 +477,8 @@ with tab_overview:
         my_picks = team_picks.get(selected_rid, [])
         st.markdown(f"""
         <div class="insight-card">
-            <div style="color: #38bdf8; font-size: 11px; font-weight: 700;">🎯 DRAFT CAPITAL & PROJECTED SLOTS ({len(my_picks)} Picks)</div>
-            <div style="margin-top: 6px;">
+            <div style="color: #38bdf8; font-size: 11px; font-weight: 700;">🎯 DRAFT CAPITAL & PROJECTIONS ({len(my_picks)} Picks)</div>
+            <div style="margin-top: 6px; font-size: 12px;">
         """, unsafe_allow_html=True)
         
         pick_str_list = [f"• <strong>{p['desc']}</strong> ({p['value']:,} pts)" for p in my_picks[:6]]
