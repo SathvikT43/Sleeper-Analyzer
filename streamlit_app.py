@@ -1168,7 +1168,7 @@ with tab_deepdive:
         ]
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+        <div class="insight-card" style="border-left: 4px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
             <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
                 {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
@@ -1371,7 +1371,7 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & CALCULATOR (ROSTER AUDIT STYLE SEPARATION) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
     st.caption("Construct multi-asset trade proposals. Separate players and draft picks independently to evaluate equity.")
@@ -1391,7 +1391,6 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Separate Player Catalog
         player_options_a = {}
         for p in p_a:
             p_obj = evaluate_player(p, all_players.get(p, {}))
@@ -1400,7 +1399,6 @@ with tab_trades:
 
         sel_players_a = st.multiselect("Search players sent by " + ta, list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...")
 
-        # Separate Pick Catalog
         pick_options_a = {}
         for pk in my_picks_a:
             label = f"{pk['desc']} • {pk['value']:,} pts"
@@ -1526,7 +1524,6 @@ with tab_trades:
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            # Subtract outgoing
             for item in sel_players_a:
                 _, val, p_obj = player_options_a[item]
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
@@ -1538,7 +1535,6 @@ with tab_trades:
                 sim_pos_val["Picks"] -= val
                 sim_pos_val["Overall"] -= val
 
-            # Add incoming
             for item in sel_players_b:
                 _, val, p_obj = player_options_b[item]
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
