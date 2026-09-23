@@ -475,13 +475,13 @@ def evaluate_player(pid, p_info):
         "stat_line": stat_line, "desc": desc
     }
 
-# ==================== DRAFT PICK INVENTORY & MAPPING ====================
+# ==================== DRAFT PICK INVENTORY (2027–2029 ONLY, SORTED) ====================
 pick_value_base = {1: 750, 2: 360, 3: 160}
 team_picks = {r["roster_id"]: [] for r in rosters}
 
 for r in rosters:
     rid = r["roster_id"]
-    for yr in [2027, 2028, 2029]:
+    for yr in [2027, 2028, 2029]:  # STRICTLY FUTURE YEARS (No 2026!)
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
@@ -503,16 +503,16 @@ for tp in traded_picks:
         yr = int(tp.get("season", 2027))
     except Exception:
         yr = 2027
-    rd = int(tp.get("round", 1))
-    if new_owner in team_picks:
-        team_picks[new_owner].append({
-            "year": yr, "round": rd, "original_rid": orig_roster,
-            "sort_key": (yr, rd, 1),
-            "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
-            "value": int(pick_value_base.get(rd, 200))
-        })
+    if yr >= 2027:  # STRICTLY FUTURE YEARS
+        rd = int(tp.get("round", 1))
+        if new_owner in team_picks:
+            team_picks[new_owner].append({
+                "year": yr, "round": rd, "original_rid": orig_roster,
+                "sort_key": (yr, rd, 1),
+                "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
+                "value": int(pick_value_base.get(rd, 200))
+            })
 
-# Sort all team picks chronologically: Year -> Round -> Team/Traded
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["sort_key"][2]))
 
@@ -1377,19 +1377,10 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE WITH VISUAL HEADSHOT SELECTOR) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (VISUAL HEADSHOT TRAY) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals with visual player headshots and sorted draft picks.")
-
-    if "trade_send_pids" not in st.session_state:
-        st.session_state["trade_send_pids"] = []
-    if "trade_send_picks" not in st.session_state:
-        st.session_state["trade_send_picks"] = []
-    if "trade_recv_pids" not in st.session_state:
-        st.session_state["trade_recv_pids"] = []
-    if "trade_recv_picks" not in st.session_state:
-        st.session_state["trade_recv_picks"] = []
+    st.caption("Construct multi-asset trade proposals. Selected players render as visual picture cards with valuation indexes.")
 
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
@@ -1397,7 +1388,7 @@ with tab_trades:
     with c_pod_a:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #38bdf8; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">YOU SEND (OUTGOING ASSETS)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 8px;">YOU SEND (OUTGOING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         ta = st.selectbox("Select Your Franchise", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
@@ -1406,51 +1397,44 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Player Selection (Instant add without clicking button)
-        available_players_a = [p for p in p_a if p not in st.session_state["trade_send_pids"]]
-        new_pl_a = st.selectbox("Add player to send", [None] + available_players_a, format_func=lambda pid: "➕ Add Player..." if pid is None else f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']}) • {evaluate_player(pid, all_players.get(pid, {}))['value']:,} pts", key="sb_add_pl_a", label_visibility="collapsed")
-        if new_pl_a is not None and new_pl_a not in st.session_state["trade_send_pids"]:
-            st.session_state["trade_send_pids"].append(new_pl_a)
-            st.rerun()
+        # Build player dictionary for multiselect with pictures
+        player_dict_a = {evaluate_player(p, all_players.get(p, {}))['name'] + f" ({evaluate_player(p, all_players.get(p, {}))['pos']} - {evaluate_player(p, all_players.get(p, {}))['team']})": p for p in p_a}
+        sel_player_names_a = st.multiselect("Select players to send", list(player_dict_a.keys()), key="ms_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
+        sel_pids_a = [player_dict_a[name] for name in sel_player_names_a]
 
-        # Render Active Send Players with Pictures
+        # Render selected players with pictures
         val_send_players = 0
-        for pid in list(st.session_state["trade_send_pids"]):
+        for pid in sel_pids_a:
             p_obj = evaluate_player(pid, all_players.get(pid, {}))
             val_send_players += p_obj["value"]
-            
-            c_img, c_info, c_rem = st.columns([0.15, 0.75, 0.1])
-            with c_img:
-                st.image(p_obj["img"], width=30)
-            with c_info:
-                st.markdown(f"**{p_obj['name']}** ({p_obj['pos']} - {p_obj['team']})  \n<span style='color: #38bdf8; font-size: 11px; font-weight: 700;'>{p_obj['value']:,} pts</span>", unsafe_allow_html=True)
-            with c_rem:
-                if st.button("✕", key=f"del_send_pl_{pid}"):
-                    st.session_state["trade_send_pids"].remove(pid)
-                    st.rerun()
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
+                <div style="display: flex; align-items: center;">
+                    <img src="{p_obj['img']}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px; border: 1px solid #283348;" onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';">
+                    <span style="font-size: 12px; font-weight: 600; color: #f8fafc;">{p_obj['name']} <span style="color: #94a3b8; font-size: 10px;">({p_obj['pos']} - {p_obj['team']})</span></span>
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">{p_obj['value']:,} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # Pick Selection (Chronologically Sorted)
-        available_picks_a = [pk for pk in my_picks_a if pk not in st.session_state["trade_send_picks"]]
-        new_pk_a = st.selectbox("Add draft pick to send", [None] + available_picks_a, format_func=lambda pk: "➕ Add Draft Pick..." if pk is None else f"{pk['desc']} • {pk['value']:,} pts", key="sb_add_pk_a", label_visibility="collapsed")
-        if new_pk_a is not None and new_pk_a not in st.session_state["trade_send_picks"]:
-            st.session_state["trade_send_picks"].append(new_pk_a)
-            st.rerun()
+        pick_dict_a = {pk['desc']: pk for pk in my_picks_a}
+        sel_pick_names_a = st.multiselect("Select draft picks to send", list(pick_dict_a.keys()), key="ms_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
+        sel_picks_a = [pick_dict_a[name] for name in sel_pick_names_a]
 
         val_send_picks = 0
-        for pk in list(st.session_state["trade_send_picks"]):
+        for pk in sel_picks_a:
             val_send_picks += pk["value"]
-            c_info, c_rem = st.columns([0.9, 0.1])
-            with c_info:
-                st.markdown(f"🎯 **{pk['desc']}**  \n<span style='color: #fbbf24; font-size: 11px; font-weight: 700;'>{pk['value']:,} pts</span>", unsafe_allow_html=True)
-            with c_rem:
-                if st.button("✕", key=f"del_send_pk_{pk['desc']}"):
-                    st.session_state["trade_send_picks"].remove(pk)
-                    st.rerun()
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">🎯 {pk['desc']}</span>
+                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">{pk['value']:,} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
 
         val_a = val_send_players + val_send_picks
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL OUTGOING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
         </div>
@@ -1461,7 +1445,7 @@ with tab_trades:
     with c_pod_b:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #c084fc; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">YOU RECEIVE (INCOMING ASSETS)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 8px;">YOU RECEIVE (INCOMING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         tb = st.selectbox("Select Trade Partner", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
@@ -1470,48 +1454,42 @@ with tab_trades:
         p_b = r_b.get("players", []) or []
         my_picks_b = team_picks.get(r_b["roster_id"], [])
 
-        available_players_b = [p for p in p_b if p not in st.session_state["trade_recv_pids"]]
-        new_pl_b = st.selectbox("Add player to receive", [None] + available_players_b, format_func=lambda pid: "➕ Add Player..." if pid is None else f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']}) • {evaluate_player(pid, all_players.get(pid, {}))['value']:,} pts", key="sb_add_pl_b", label_visibility="collapsed")
-        if new_pl_b is not None and new_pl_b not in st.session_state["trade_recv_pids"]:
-            st.session_state["trade_recv_pids"].append(new_pl_b)
-            st.rerun()
+        player_dict_b = {evaluate_player(p, all_players.get(p, {}))['name'] + f" ({evaluate_player(p, all_players.get(p, {}))['pos']} - {evaluate_player(p, all_players.get(p, {}))['team']})": p for p in p_b}
+        sel_player_names_b = st.multiselect("Select players to receive", list(player_dict_b.keys()), key="ms_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
+        sel_pids_b = [player_dict_b[name] for name in sel_player_names_b]
 
         val_recv_players = 0
-        for pid in list(st.session_state["trade_recv_pids"]):
+        for pid in sel_pids_b:
             p_obj = evaluate_player(pid, all_players.get(pid, {}))
             val_recv_players += p_obj["value"]
-            
-            c_img, c_info, c_rem = st.columns([0.15, 0.75, 0.1])
-            with c_img:
-                st.image(p_obj["img"], width=30)
-            with c_info:
-                st.markdown(f"**{p_obj['name']}** ({p_obj['pos']} - {p_obj['team']})  \n<span style='color: #c084fc; font-size: 11px; font-weight: 700;'>{p_obj['value']:,} pts</span>", unsafe_allow_html=True)
-            with c_rem:
-                if st.button("✕", key=f"del_recv_pl_{pid}"):
-                    st.session_state["trade_recv_pids"].remove(pid)
-                    st.rerun()
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
+                <div style="display: flex; align-items: center;">
+                    <img src="{p_obj['img']}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px; border: 1px solid #283348;" onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';">
+                    <span style="font-size: 12px; font-weight: 600; color: #f8fafc;">{p_obj['name']} <span style="color: #94a3b8; font-size: 10px;">({p_obj['pos']} - {p_obj['team']})</span></span>
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: #c084fc;">{p_obj['value']:,} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-        available_picks_b = [pk for pk in my_picks_b if pk not in st.session_state["trade_recv_picks"]]
-        new_pk_b = st.selectbox("Add draft pick to receive", [None] + available_picks_b, format_func=lambda pk: "➕ Add Draft Pick..." if pk is None else f"{pk['desc']} • {pk['value']:,} pts", key="sb_add_pk_b", label_visibility="collapsed")
-        if new_pk_b is not None and new_pk_b not in st.session_state["trade_recv_picks"]:
-            st.session_state["trade_recv_picks"].append(new_pk_b)
-            st.rerun()
+        pick_dict_b = {pk['desc']: pk for pk in my_picks_b}
+        sel_pick_names_b = st.multiselect("Select draft picks to receive", list(pick_dict_b.keys()), key="ms_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
+        sel_picks_b = [pick_dict_b[name] for name in sel_pick_names_b]
 
         val_recv_picks = 0
-        for pk in list(st.session_state["trade_recv_picks"]):
+        for pk in sel_picks_b:
             val_recv_picks += pk["value"]
-            c_info, c_rem = st.columns([0.9, 0.1])
-            with c_info:
-                st.markdown(f"🎯 **{pk['desc']}**  \n<span style='color: #fbbf24; font-size: 11px; font-weight: 700;'>{pk['value']:,} pts</span>", unsafe_allow_html=True)
-            with c_rem:
-                if st.button("✕", key=f"del_recv_pk_{pk['desc']}"):
-                    st.session_state["trade_recv_picks"].remove(pk)
-                    st.rerun()
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">🎯 {pk['desc']}</span>
+                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">{pk['value']:,} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
 
         val_b = val_recv_players + val_recv_picks
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL INCOMING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
         </div>
@@ -1590,23 +1568,23 @@ with tab_trades:
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            for pid in st.session_state["trade_send_pids"]:
+            for pid in sel_pids_a:
                 p_obj = evaluate_player(pid, all_players.get(pid, {}))
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
                     sim_pos_val[p_cat] -= p_obj["value"]
                 sim_pos_val["Overall"] -= p_obj["value"]
-            for pk in st.session_state["trade_send_picks"]:
+            for pk in sel_picks_a:
                 sim_pos_val["Picks"] -= pk["value"]
                 sim_pos_val["Overall"] -= pk["value"]
 
-            for pid in st.session_state["trade_recv_pids"]:
+            for pid in sel_pids_b:
                 p_obj = evaluate_player(pid, all_players.get(pid, {}))
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
                     sim_pos_val[p_cat] += p_obj["value"]
                 sim_pos_val["Overall"] += p_obj["value"]
-            for pk in st.session_state["trade_recv_picks"]:
+            for pk in sel_picks_b:
                 sim_pos_val["Picks"] += pk["value"]
                 sim_pos_val["Overall"] += pk["value"]
 
