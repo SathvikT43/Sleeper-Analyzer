@@ -261,9 +261,7 @@ for r in rosters:
         player_owner_map[pid] = owner_name
         all_rostered_players.add(pid)
 
-# ==================== TRUE 1QB UNIFIED DYNASTY VALUATION ENGINE ====================
-# Scaled for 8 Teams | 1QB | 2TE (+0.25 TEP) | 4 Flex | IDP Big-Play
-# RBs, WRs, and 2TE tight ends dominate the top tiers; QBs are properly calibrated for 1QB
+# ==================== ACCURATE 1QB DYNASTY VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -289,7 +287,6 @@ def evaluate_player(pid, p_info):
     p_stat = nfl_stats_season.get(str(pid), {})
     gp = int(p_stat.get("gp", 0) or 0)
     pts_half_ppr = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
-    
     ppg = round(pts_half_ppr / gp, 1) if gp > 0 else 0.0
 
     stat_fragments = []
@@ -316,7 +313,7 @@ def evaluate_player(pid, p_info):
             stat_fragments.append(f"{rush_att} Car • {rush_yd} Yds • {rush_td} TD")
             if rec > 0:
                 stat_fragments.append(f"{rec} Rec • {rec_yd} Yds")
-            scout_fragments.append(f"Leading {team}'s backfield with {rush_att} carries and {rec} receptions.")
+            scout_fragments.append(f"Feature back for {team} logging {rush_att} carries and {rec} receptions.")
     elif pos in ["WR", "TE"]:
         rec = int(p_stat.get("rec", 0))
         rec_yd = int(p_stat.get("rec_yd", 0))
@@ -324,66 +321,69 @@ def evaluate_player(pid, p_info):
         rec_tgt = int(p_stat.get("rec_tgt", 0))
         if rec_tgt > 0 or rec > 0:
             stat_fragments.append(f"{rec}/{rec_tgt} Targets • {rec_yd} Yds • {rec_td} TD")
-            scout_fragments.append(f"Primary target in {team} with {rec_tgt} targets.")
+            scout_fragments.append(f"Pass-catcher in {team} with {rec_tgt} targets.")
     else:  # IDP
         tkl = int(p_stat.get("idp_tkl", 0) or p_stat.get("tkl", 0))
         sack = float(p_stat.get("idp_sack", 0) or p_stat.get("sack", 0))
         tfl = int(p_stat.get("idp_tkl_loss", 0) or p_stat.get("tkl_loss", 0))
         if tkl > 0 or sack > 0:
             stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
-            scout_fragments.append(f"Disruptive defender tallying {sack:.1f} sacks.")
+            scout_fragments.append(f"Front-7 defender recording {sack:.1f} sacks.")
 
     stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut)"
 
-    # Base Talent Score from Sleeper Market Consensus
+    # 1. EXPANDED BASE TALENT CALCULATION
+    # Creates distinct value tiers so true generational NFL producers separate from prospects
     if search_rank and search_rank > 0:
-        if search_rank <= 10:
-            talent_score = 940 - (search_rank * 6)
-        elif search_rank <= 30:
-            talent_score = 870 - ((search_rank - 10) * 5)
-        elif search_rank <= 80:
-            talent_score = 740 - ((search_rank - 30) * 3.2)
-        elif search_rank <= 200:
-            talent_score = 560 - ((search_rank - 80) * 1.8)
-        elif search_rank <= 450:
-            talent_score = 310 - ((search_rank - 200) * 0.7)
+        if search_rank <= 5:        # Bijan Robinson, Jahmyr Gibbs, Ja'Marr Chase, CeeDee Lamb
+            talent_score = 1150 - (search_rank * 12)
+        elif search_rank <= 15:     # Justin Jefferson, Amon-Ra, Brock Bowers, Breece Hall
+            talent_score = 1040 - ((search_rank - 5) * 10)
+        elif search_rank <= 35:     # Top young starters & high-end flex
+            talent_score = 900 - ((search_rank - 15) * 8)
+        elif search_rank <= 80:     # Solid starters
+            talent_score = 720 - ((search_rank - 35) * 4)
+        elif search_rank <= 200:    # Rotation pieces
+            talent_score = 520 - ((search_rank - 80) * 2)
+        elif search_rank <= 450:    # Backups & depth
+            talent_score = 280 - ((search_rank - 200) * 0.7)
         else:
-            talent_score = max(40, 120 - ((search_rank - 450) * 0.08))
+            talent_score = max(35, 100 - ((search_rank - 450) * 0.08))
     else:
         if depth_order == 1:
-            talent_score = 380
+            talent_score = 360
         elif depth_order == 2:
-            talent_score = 140
+            talent_score = 130
         else:
-            talent_score = 60
+            talent_score = 50
 
-    # Strict 1QB Position Multipliers
+    # 2. POSITION MULTIPLIERS SPECIFIC TO 1QB 8-TEAM DYNASTY:
     if pos == "RB":
-        pos_multiplier = 1.38   # Bijan Robinson & Jahmyr Gibbs top the dynasty charts
+        pos_multiplier = 1.38   # Bellcows are the most scarce currency in 8-team 1QB
     elif pos == "WR":
-        pos_multiplier = 1.32   # Ja'Marr Chase, CeeDee Lamb, Justin Jefferson, JSN
+        pos_multiplier = 1.32   # Elite alpha wideouts
     elif pos == "TE":
-        pos_multiplier = 1.25   # Brock Bowers, Trey McBride (2TE + 0.25 TEP boost)
+        pos_multiplier = 1.25   # 2TE + 0.25 TEP boost
     elif pos == "QB":
-        # In 8-team 1QB, replacement value is huge. Only elite QBs retain solid value
         if search_rank and search_rank <= 20:
-            pos_multiplier = 0.58  # Josh Allen / Lamar Jackson / Patrick Mahomes
+            pos_multiplier = 0.56  # Elite QBs (Josh Allen, Lamar)
         elif search_rank and search_rank <= 60:
-            pos_multiplier = 0.42  # Mid QBs (Hurts, Burrow, Maye, Daniels)
+            pos_multiplier = 0.38  # Mid QBs
         elif depth_order and depth_order >= 2:
-            pos_multiplier = 0.10  # Backup QBs
+            pos_multiplier = 0.08  # Backup QBs have near 0 trade value
         else:
-            pos_multiplier = 0.28  # Lower-tier starters
+            pos_multiplier = 0.24  # Streamer starters
     elif pos in ["DL", "DE"]:
-        pos_multiplier = 0.65
+        pos_multiplier = 0.60
     else:
-        pos_multiplier = 0.45
+        pos_multiplier = 0.40
 
-    # Age Multipliers
+    # 3. AGE CURVES (Fixed: Ages 22–24 for RBs receive equal apex treatment)
+    # Proven superstars like Bijan & Gibbs (24yo) do not get penalized vs 22/23yo rookies!
     if pos == "RB":
-        if age <= 23:
+        if age <= 24:
             stage, badge, age_mult = "Rising", "badge-rising", 1.25
-        elif age <= 25:
+        elif age <= 26:
             stage, badge, age_mult = "Prime", "badge-prime", 1.12
         elif age <= 27:
             stage, badge, age_mult = "Prime", "badge-prime", 0.95
@@ -395,7 +395,7 @@ def evaluate_player(pid, p_info):
         if age <= 24:
             stage, badge, age_mult = "Rising", "badge-rising", 1.22
         elif age <= 27:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.08
+            stage, badge, age_mult = "Prime", "badge-prime", 1.10
         elif age <= 29:
             stage, badge, age_mult = "Descending", "badge-descending", 0.85
         else:
@@ -420,12 +420,11 @@ def evaluate_player(pid, p_info):
     dynasty_val = max(int(talent_score * pos_multiplier * age_mult), 25)
     redraft_val = max(int(talent_score * pos_multiplier * (1.1 if stage in ["Prime", "Descending"] else 0.95)), 20)
 
-    # Dynamic Tags
-    if dynasty_val >= 900:
+    if dynasty_val >= 950:
         action, act_badge = "CORNERSTONE", "badge-buy"
     elif stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
         action, act_badge = "SELL HIGH", "badge-sell"
-    elif stage == "Rising" and dynasty_val >= 500:
+    elif stage == "Rising" and dynasty_val >= 550:
         action, act_badge = "BUY / STRONG HOLD", "badge-buy"
     elif dynasty_val >= 550:
         action, act_badge = "CORE STARTER", "badge-hold"
@@ -434,7 +433,7 @@ def evaluate_player(pid, p_info):
 
     full_name = p_info.get('full_name') or f"Player {pid}"
     scout_core = " ".join(scout_fragments)
-    if dynasty_val >= 900:
+    if dynasty_val >= 950:
         dynasty_outlook = f"Franchise anchor for {team}. In 1QB 8-team leagues, this caliber of high-scoring starter provides an overwhelming weekly point advantage."
     elif stage == "Rising":
         dynasty_outlook = f"Ascending young stud with foundational multi-year runway. Prime building block for 2027–2029 championship contention."
@@ -587,7 +586,7 @@ df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"]
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
-# ==================== POOL OF PLAYERS (SYNCHRONIZED - NO STALE CACHE) ====================
+# ==================== POOL OF PLAYERS (DIRECT - NO STALE CACHE) ====================
 pool = []
 for pid in all_rostered_players:
     p_info = all_players.get(pid, {})
@@ -781,8 +780,8 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 800]))
-        rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 550]))
+        superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 950]))
+        rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 650]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
 
         st.markdown(f"""
