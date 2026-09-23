@@ -527,7 +527,7 @@ elif nav_selection == "⚔️ Fantasy Matchups":
 
 elif nav_selection == "🏈 NFL Schedule & Scores":
     st.markdown("### 🏈 Real-Time NFL Game Center & Scores (Week 3)")
-    st.caption("Live scores, kickoff times, venue matchups (Away @ Home), and prime-time badges.")
+    st.caption("Live NFL scores, kickoff times, venue matchups (Away @ Home), and prime-time badges.")
     
     try:
         nfl_games_resp = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", timeout=6)
@@ -540,7 +540,7 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                     game_date_str = ev.get("date", "")
                     notes = comp.get("notes", [])
                     
-                    # Official Prime-Time Tag Detection from ESPN Notes or Schedule
+                    # Prime-Time Tag Detection
                     prime_tag = ""
                     note_text = notes[0].get("headline", "").lower() if notes else ""
                     
@@ -557,11 +557,9 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                         else:
                             prime_tag = f'<span style="color: #64748b; font-size: 11px; font-weight: 600;">{time_formatted}</span>'
                     except Exception:
-                        time_formatted = "Scheduled"
                         prime_tag = '<span style="color: #64748b; font-size: 11px;">Scheduled</span>'
 
                     if len(competitors) == 2:
-                        # ESPN usually returns [Home, Away] or [Away, Home]. Let's sort by homeAway
                         home_team = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0])
                         away_team = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
                         
