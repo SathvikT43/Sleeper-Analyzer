@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== IOS PWA & MACOS LIQUID GLASS CSS ====================
+# ==================== IOS PWA & LIQUID GLASS SIDEBAR CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -42,16 +42,53 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Left Sidebar Slideout Navigation Styling */
+    /* Widen & Style Sidebar into Liquid Glass Panel */
     section[data-testid="stSidebar"] {
-        background: rgba(10, 14, 22, 0.85) !important;
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
+        width: 300px !important;
+        background: rgba(8, 12, 20, 0.75) !important;
+        backdrop-filter: blur(35px);
+        -webkit-backdrop-filter: blur(35px);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     section[data-testid="stSidebar"] .block-container {
-        padding-top: 2rem;
+        padding-top: 2.5rem;
+        padding-left: 1.2rem;
+        padding-right: 1.2rem;
+    }
+
+    /* Custom Radio Navigation Styling (iOS Glass Pills) */
+    div[data-testid="stRadio"] > div {
+        gap: 8px !important;
+    }
+
+    div[data-testid="stRadio"] label {
+        background: rgba(255, 255, 255, 0.02) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        color: #94a3b8 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        width: 100% !important;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    div[data-testid="stRadio"] label:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
+        border-color: rgba(56, 189, 248, 0.2) !important;
+    }
+
+    div[data-testid="stRadio"] input:checked + div p {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
+    div[data-testid="stRadio"] label:has(input:checked) {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+        border: 1px solid rgba(56, 189, 248, 0.4) !important;
+        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
     }
 
     .glass-header {
@@ -319,7 +356,7 @@ all_players = get_all_players()
 
 # ==================== SLIDEOUT PANEL (SIDEBAR NAVIGATION) ====================
 with st.sidebar:
-    st.markdown("### ⚡ Dynasty Navigation")
+    st.markdown("<h3 style='color: #f8fafc; font-size: 16px; font-weight: 800; margin-bottom: 12px;'>⚡ Dynasty Navigation</h3>", unsafe_allow_html=True)
     nav_selection = st.radio(
         "Navigation", 
         [
@@ -749,6 +786,63 @@ if nav_selection == "👤 Roster & Insights":
             st.markdown(row_html, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        playoff_odds = 25 if my_row["wins"] == 0 else (98 if my_row["wins"] >= 2 else 70)
+        st.markdown(f"""
+        <div class="insight-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">2026 PLAYOFF ODDS</div>
+                    <div style="font-size: 22px; font-weight: 800; color: {'#4ade80' if playoff_odds >= 70 else '#f43f5e'};">{playoff_odds}%</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">2026 TITLE CHANCE</div>
+                    <div style="font-size: 22px; font-weight: 800; color: {'#38bdf8' if my_row['odds_2026'] >= 15 else '#f43f5e'};">{my_row['odds_2026']}%</div>
+                </div>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Based on record ({my_row['wins']}W-{my_row['losses']}L), PF, and playoff seed #{my_row['seed']}.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 950]))
+        rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 650]))
+        uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
+
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #4ade80;">
+            <div style="color: #4ade80; font-size: 11px; font-weight: 700;">🟢 CORNERSTONE KEEPERS</div>
+            <p style="font-size: 12px; color: #f1f5f9; margin-top: 3px; margin-bottom: 0;">{', '.join((superstars + rising)[:6]) if (superstars or rising) else 'None identified'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+            <div style="color: #f43f5e; font-size: 11px; font-weight: 700;">🔴 TRADE CANDIDATES (SELL HIGH / UNC)</div>
+            <p style="font-size: 12px; color: #f1f5f9; margin-top: 3px; margin-bottom: 0;">{', '.join(uncs[:5]) if uncs else 'No aging assets currently'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        my_picks = team_picks.get(selected_rid, [])
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
+            <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 DRAFT CAPITAL & PROJECTIONS ({len(my_picks)} TOTAL PICKS)</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Sorted by Draft Year • Projections based on current Max PF order</div>
+        """, unsafe_allow_html=True)
+        
+        if not my_picks:
+            st.caption("No picks currently owned.")
+        else:
+            for yr in [2027, 2028, 2029]:
+                yr_picks = [p for p in my_picks if p["year"] == yr]
+                if yr_picks:
+                    st.markdown(f"<div style='font-size: 12px; font-weight: 700; color: #f8fafc; margin-top: 6px;'>📅 {yr} Picks:</div>", unsafe_allow_html=True)
+                    for p in yr_picks:
+                        st.markdown(f"""
+                        <div style="font-size: 12px; color: #cbd5e1; padding-left: 10px; margin-bottom: 2px;">
+                            • <strong>{p['desc']}</strong> <span style="color: #38bdf8; font-weight: 600;">({p['value']:,} pts)</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
 elif nav_selection == "📈 Overall Dynasty Rankings":
     st.markdown("### 📈 Overall Dynasty Player Rankings (1QB Format)")
     st.caption("True 1QB dynasty rankings where elite RBs, WRs, and 2TE premium tight ends rightfully dominate the board.")
@@ -871,10 +965,9 @@ elif nav_selection == "⚔️ Fantasy Matchups":
                 """, unsafe_allow_html=True)
 
 elif nav_selection == "🏈 NFL Schedule & Scores":
-    st.markdown("### 🏈 Real-Time NFL Game Center & Scores (Week 3)")
+    st.markdown("### 🏈 Real-Time NFL Game Center & Scores")
     st.caption("Live NFL scores, quarter status, and game schedules.")
     
-    # Fetch real-time NFL schedule/scores from Sleeper NFL state / schedule API
     try:
         nfl_games_resp = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", timeout=6)
         if nfl_games_resp.status_code == 200:
@@ -910,7 +1003,7 @@ elif nav_selection == "🎲 Playoffs & Toilet Bowl":
     is_proj_mode = "Projected" in standings_mode
     active_standings_list = df_proj_calc.to_dict('records') if is_proj_mode else df_curr_calc.to_dict('records')
     
-    for idx in range(min(6, len(active_standings_list))):
+    for idx in range(min(8, len(active_standings_list))):
         row = active_standings_list[idx]
         st.markdown(f"""
         <div class="odds-row" style="padding: 10px 14px; margin-bottom: 6px;">
