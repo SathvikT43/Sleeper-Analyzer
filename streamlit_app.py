@@ -9,13 +9,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS / IOS LIQUID GLASS THEME CSS ====================
+# ==================== MACOS / IOS LIQUID GLASS DESIGN SYSTEM ====================
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     .stApp {
-        background-color: #06080d;
+        background-color: #04060b;
+        background-image: 
+            radial-gradient(at 10% 10%, rgba(14, 30, 60, 0.4) 0px, transparent 50%),
+            radial-gradient(at 90% 10%, rgba(40, 15, 60, 0.3) 0px, transparent 50%),
+            radial-gradient(at 50% 50%, rgba(8, 15, 30, 0.6) 0px, transparent 100%);
         color: #f1f5f9;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
     }
     
     div[data-baseweb="select"] input,
@@ -32,37 +38,41 @@ st.markdown("""
 
     /* Liquid Glass Card Effect */
     .metric-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.025);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
         border-top: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 16px;
-        padding: 16px 20px;
+        border-radius: 18px;
+        padding: 18px 22px;
         margin-bottom: 16px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .metric-card:hover {
+        transform: translateY(-2px);
         border-color: rgba(56, 189, 248, 0.3);
+        box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
     }
 
     .lineup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(255, 255, 255, 0.015);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 12px;
-        padding: 8px 14px;
+        padding: 9px 14px;
         margin-bottom: 6px;
-        transition: all 0.2s ease;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .lineup-row:hover {
-        background: rgba(255, 255, 255, 0.04);
-        border-color: rgba(56, 189, 248, 0.25);
+        background: rgba(255, 255, 255, 0.035);
+        border-color: rgba(56, 189, 248, 0.3);
+        transform: scale(1.005);
     }
 
     .pos-slot {
@@ -73,11 +83,11 @@ st.markdown("""
         font-weight: 800;
         color: #94a3b8;
         text-align: center;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.04);
         border-radius: 7px;
         margin-right: 10px;
         flex-shrink: 0;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     .rank-slot {
@@ -99,6 +109,7 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.15);
         margin-right: 12px;
         flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .badge {
@@ -122,33 +133,34 @@ st.markdown("""
     .badge-fa { background: rgba(100, 116, 139, 0.12); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); }
 
     .insight-card {
-        background: rgba(255, 255, 255, 0.025);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-top: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 16px;
-        padding: 16px 18px;
+        border-radius: 18px;
+        padding: 18px 20px;
         margin-bottom: 14px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
     }
 
     .odds-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 7px 12px;
-        background: rgba(255, 255, 255, 0.015);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 9px;
-        margin-bottom: 5px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        margin-bottom: 6px;
     }
 
     .section-header {
         font-size: 15px;
         font-weight: 700;
         color: #f8fafc;
-        margin-top: 16px;
+        margin-top: 18px;
         margin-bottom: 10px;
         letter-spacing: 0.3px;
     }
@@ -157,11 +169,12 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 10px;
-        padding: 9px 14px;
-        margin-bottom: 7px;
+        background: rgba(255, 255, 255, 0.018);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
     }
     .pos-rank-pill {
         display: inline-block;
@@ -177,22 +190,23 @@ st.markdown("""
     .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35); }
 
     details.player-expand-card {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(255, 255, 255, 0.015);
         backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
         margin-bottom: 6px;
         overflow: hidden;
-        transition: border-color 0.2s ease, background 0.2s ease;
+        transition: all 0.2s ease;
     }
     details.player-expand-card[open] {
         border-color: rgba(56, 189, 248, 0.4);
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.035);
     }
     details.player-expand-card summary {
         list-style: none;
         cursor: pointer;
-        padding: 8px 12px;
+        padding: 9px 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -219,7 +233,7 @@ st.markdown("""
     .player-expand-content {
         padding: 12px 16px 14px 16px;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1198,7 +1212,7 @@ with tab_deepdive:
         ]
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #38bdf8;">
+        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
             <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
                 {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
@@ -1212,7 +1226,7 @@ with tab_deepdive:
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 4px solid #f43f5e;">
+            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
                 <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
                 <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                     These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
@@ -1224,7 +1238,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
         elif is_competing and win_now_veterans:
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 4px solid #fbbf24;">
+            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
                 <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
                 <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                     Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
@@ -1233,7 +1247,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #4ade80;">
+        <div class="insight-card" style="border-left: 3px solid #4ade80;">
             <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
             <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                 Players whose prime aligns with your team's championship runway:
@@ -1401,7 +1415,7 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (LIQUID GLASS EDITORIAL) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
     st.caption("Construct multi-asset trade proposals. Select players and draft picks independently to evaluate equity.")
