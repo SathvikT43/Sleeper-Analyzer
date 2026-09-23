@@ -491,6 +491,7 @@ for r in rosters:
             if not traded:
                 team_picks[rid].append({
                     "year": yr, "round": rd, "original_rid": rid,
+                    "sort_key": (yr, rd, 0),
                     "desc": f"{yr} Rd {rd} (Team Pick)",
                     "value": int(pick_value_base[rd])
                 })
@@ -506,9 +507,14 @@ for tp in traded_picks:
     if new_owner in team_picks:
         team_picks[new_owner].append({
             "year": yr, "round": rd, "original_rid": orig_roster,
+            "sort_key": (yr, rd, 1),
             "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
             "value": int(pick_value_base.get(rd, 200))
         })
+
+# Sort all team picks chronologically: Year -> Round -> Team/Traded
+for rid in team_picks:
+    team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["sort_key"][2]))
 
 pick_2027_rd1_owner = {}
 for r in rosters:
@@ -759,7 +765,7 @@ with tab_overview:
                     f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
                     f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
                     f'          <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">{p["name"]} '
-                    f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                    f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} • {p["age"]}yo</span>'
                     f'          </div>'
                     f'          <div style="margin-top: 2px;">'
                     f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
@@ -1080,7 +1086,7 @@ with tab_deepdive:
             league_slots = league_info.get("roster_positions", [])
 
             for idx, pid in enumerate(player_id_list):
-                p = player_evals.get(pid)
+                p = evaluate_player(pid, all_players.get(pid, {}))
                 if not p:
                     continue
 
@@ -1144,7 +1150,7 @@ with tab_deepdive:
         render_deepdive_player_group("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
         render_deepdive_player_group("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
-    with col_insights:
+    with col_dd_insights:
         st.markdown('<div class="section-header">🧠 Window-Maximizing Intelligence</div>', unsafe_allow_html=True)
 
         my_all_player_objs = [evaluate_player(p, all_players.get(p, {})) for p in pids]
@@ -1371,18 +1377,17 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE WITH PLAYER PICTURES) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE WITH VISUAL HEADSHOT SELECTOR) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals. Select players and draft picks with visual headshots to evaluate equity.")
+    st.caption("Construct multi-asset trade proposals with visual player headshots and sorted draft picks.")
 
-    # Initialize Session State for Trade Assets
-    if "trade_send_players" not in st.session_state:
-        st.session_state["trade_send_players"] = []
+    if "trade_send_pids" not in st.session_state:
+        st.session_state["trade_send_pids"] = []
     if "trade_send_picks" not in st.session_state:
         st.session_state["trade_send_picks"] = []
-    if "trade_recv_players" not in st.session_state:
-        st.session_state["trade_recv_players"] = []
+    if "trade_recv_pids" not in st.session_state:
+        st.session_state["trade_recv_pids"] = []
     if "trade_recv_picks" not in st.session_state:
         st.session_state["trade_recv_picks"] = []
 
@@ -1401,36 +1406,35 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Add Player Expander/Selector
-        with st.expander("➕ Add Player to Send", expanded=False):
-            player_add_a = st.selectbox("Choose player to send", [p for p in p_a if p not in st.session_state["trade_send_players"]], format_func=lambda pid: f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']})", key="add_pl_a")
-            if st.button("Confirm Add Player", key="btn_add_pl_a"):
-                if player_add_a and player_add_a not in st.session_state["trade_send_players"]:
-                    st.session_state["trade_send_players"].append(player_add_a)
-                    st.rerun()
+        # Player Selection (Instant add without clicking button)
+        available_players_a = [p for p in p_a if p not in st.session_state["trade_send_pids"]]
+        new_pl_a = st.selectbox("Add player to send", [None] + available_players_a, format_func=lambda pid: "➕ Add Player..." if pid is None else f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']}) • {evaluate_player(pid, all_players.get(pid, {}))['value']:,} pts", key="sb_add_pl_a", label_visibility="collapsed")
+        if new_pl_a is not None and new_pl_a not in st.session_state["trade_send_pids"]:
+            st.session_state["trade_send_pids"].append(new_pl_a)
+            st.rerun()
 
-        # Render Selected Send Players with Pictures
+        # Render Active Send Players with Pictures
         val_send_players = 0
-        for pid in list(st.session_state["trade_send_players"]):
+        for pid in list(st.session_state["trade_send_pids"]):
             p_obj = evaluate_player(pid, all_players.get(pid, {}))
             val_send_players += p_obj["value"]
-            c_img, c_info, c_rem = st.columns([0.2, 0.7, 0.1])
+            
+            c_img, c_info, c_rem = st.columns([0.15, 0.75, 0.1])
             with c_img:
-                st.image(p_obj["img"], width=32)
+                st.image(p_obj["img"], width=30)
             with c_info:
                 st.markdown(f"**{p_obj['name']}** ({p_obj['pos']} - {p_obj['team']})  \n<span style='color: #38bdf8; font-size: 11px; font-weight: 700;'>{p_obj['value']:,} pts</span>", unsafe_allow_html=True)
             with c_rem:
-                if st.button("✕", key=f"rem_pl_a_{pid}"):
-                    st.session_state["trade_send_players"].remove(pid)
+                if st.button("✕", key=f"del_send_pl_{pid}"):
+                    st.session_state["trade_send_pids"].remove(pid)
                     st.rerun()
 
-        # Add Pick Expander/Selector
-        with st.expander("➕ Add Draft Pick to Send", expanded=False):
-            pick_add_a = st.selectbox("Choose pick to send", [pk for pk in my_picks_a if pk not in st.session_state["trade_send_picks"]], format_func=lambda pk: pk['desc'], key="add_pk_a")
-            if st.button("Confirm Add Pick", key="btn_add_pk_a"):
-                if pick_add_a and pick_add_a not in st.session_state["trade_send_picks"]:
-                    st.session_state["trade_send_picks"].append(pick_add_a)
-                    st.rerun()
+        # Pick Selection (Chronologically Sorted)
+        available_picks_a = [pk for pk in my_picks_a if pk not in st.session_state["trade_send_picks"]]
+        new_pk_a = st.selectbox("Add draft pick to send", [None] + available_picks_a, format_func=lambda pk: "➕ Add Draft Pick..." if pk is None else f"{pk['desc']} • {pk['value']:,} pts", key="sb_add_pk_a", label_visibility="collapsed")
+        if new_pk_a is not None and new_pk_a not in st.session_state["trade_send_picks"]:
+            st.session_state["trade_send_picks"].append(new_pk_a)
+            st.rerun()
 
         val_send_picks = 0
         for pk in list(st.session_state["trade_send_picks"]):
@@ -1439,7 +1443,7 @@ with tab_trades:
             with c_info:
                 st.markdown(f"🎯 **{pk['desc']}**  \n<span style='color: #fbbf24; font-size: 11px; font-weight: 700;'>{pk['value']:,} pts</span>", unsafe_allow_html=True)
             with c_rem:
-                if st.button("✕", key=f"rem_pk_a_{pk['desc']}"):
+                if st.button("✕", key=f"del_send_pk_{pk['desc']}"):
                     st.session_state["trade_send_picks"].remove(pk)
                     st.rerun()
 
@@ -1466,33 +1470,32 @@ with tab_trades:
         p_b = r_b.get("players", []) or []
         my_picks_b = team_picks.get(r_b["roster_id"], [])
 
-        with st.expander("➕ Add Player to Receive", expanded=False):
-            player_add_b = st.selectbox("Choose player to receive", [p for p in p_b if p not in st.session_state["trade_recv_players"]], format_func=lambda pid: f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']})", key="add_pl_b")
-            if st.button("Confirm Add Player", key="btn_add_pl_b"):
-                if player_add_b and player_add_b not in st.session_state["trade_recv_players"]:
-                    st.session_state["trade_recv_players"].append(player_add_b)
-                    st.rerun()
+        available_players_b = [p for p in p_b if p not in st.session_state["trade_recv_pids"]]
+        new_pl_b = st.selectbox("Add player to receive", [None] + available_players_b, format_func=lambda pid: "➕ Add Player..." if pid is None else f"{evaluate_player(pid, all_players.get(pid, {}))['name']} ({evaluate_player(pid, all_players.get(pid, {}))['pos']} - {evaluate_player(pid, all_players.get(pid, {}))['team']}) • {evaluate_player(pid, all_players.get(pid, {}))['value']:,} pts", key="sb_add_pl_b", label_visibility="collapsed")
+        if new_pl_b is not None and new_pl_b not in st.session_state["trade_recv_pids"]:
+            st.session_state["trade_recv_pids"].append(new_pl_b)
+            st.rerun()
 
         val_recv_players = 0
-        for pid in list(st.session_state["trade_recv_players"]):
+        for pid in list(st.session_state["trade_recv_pids"]):
             p_obj = evaluate_player(pid, all_players.get(pid, {}))
             val_recv_players += p_obj["value"]
-            c_img, c_info, c_rem = st.columns([0.2, 0.7, 0.1])
+            
+            c_img, c_info, c_rem = st.columns([0.15, 0.75, 0.1])
             with c_img:
-                st.image(p_obj["img"], width=32)
+                st.image(p_obj["img"], width=30)
             with c_info:
                 st.markdown(f"**{p_obj['name']}** ({p_obj['pos']} - {p_obj['team']})  \n<span style='color: #c084fc; font-size: 11px; font-weight: 700;'>{p_obj['value']:,} pts</span>", unsafe_allow_html=True)
             with c_rem:
-                if st.button("✕", key=f"rem_pl_b_{pid}"):
-                    st.session_state["trade_recv_players"].remove(pid)
+                if st.button("✕", key=f"del_recv_pl_{pid}"):
+                    st.session_state["trade_recv_pids"].remove(pid)
                     st.rerun()
 
-        with st.expander("➕ Add Draft Pick to Receive", expanded=False):
-            pick_add_b = st.selectbox("Choose pick to receive", [pk for pk in my_picks_b if pk not in st.session_state["trade_recv_picks"]], format_func=lambda pk: pk['desc'], key="add_pk_b")
-            if st.button("Confirm Add Pick", key="btn_add_pk_b"):
-                if pick_add_b and pick_add_b not in st.session_state["trade_recv_picks"]:
-                    st.session_state["trade_recv_picks"].append(pick_add_b)
-                    st.rerun()
+        available_picks_b = [pk for pk in my_picks_b if pk not in st.session_state["trade_recv_picks"]]
+        new_pk_b = st.selectbox("Add draft pick to receive", [None] + available_picks_b, format_func=lambda pk: "➕ Add Draft Pick..." if pk is None else f"{pk['desc']} • {pk['value']:,} pts", key="sb_add_pk_b", label_visibility="collapsed")
+        if new_pk_b is not None and new_pk_b not in st.session_state["trade_recv_picks"]:
+            st.session_state["trade_recv_picks"].append(new_pk_b)
+            st.rerun()
 
         val_recv_picks = 0
         for pk in list(st.session_state["trade_recv_picks"]):
@@ -1501,7 +1504,7 @@ with tab_trades:
             with c_info:
                 st.markdown(f"🎯 **{pk['desc']}**  \n<span style='color: #fbbf24; font-size: 11px; font-weight: 700;'>{pk['value']:,} pts</span>", unsafe_allow_html=True)
             with c_rem:
-                if st.button("✕", key=f"rem_pk_b_{pk['desc']}"):
+                if st.button("✕", key=f"del_recv_pk_{pk['desc']}"):
                     st.session_state["trade_recv_picks"].remove(pk)
                     st.rerun()
 
@@ -1587,7 +1590,7 @@ with tab_trades:
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            for pid in st.session_state["trade_send_players"]:
+            for pid in st.session_state["trade_send_pids"]:
                 p_obj = evaluate_player(pid, all_players.get(pid, {}))
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
@@ -1597,7 +1600,7 @@ with tab_trades:
                 sim_pos_val["Picks"] -= pk["value"]
                 sim_pos_val["Overall"] -= pk["value"]
 
-            for pid in st.session_state["trade_recv_players"]:
+            for pid in st.session_state["trade_recv_pids"]:
                 p_obj = evaluate_player(pid, all_players.get(pid, {}))
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
