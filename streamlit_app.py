@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
 
 st.set_page_config(
     page_title="Dynasty Hub & Lineup Architect", 
@@ -10,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== IOS PWA & LIQUID GLASS CSS ====================
+# ==================== IOS PWA & LIQUID GLASS SIDEBAR CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -43,16 +42,53 @@ st.markdown("""
         cursor: pointer !important;
     }
 
+    /* Widen & Style Sidebar into Liquid Glass Panel */
     section[data-testid="stSidebar"] {
-        width: 280px !important;
-        background: rgba(8, 12, 20, 0.85) !important;
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
+        width: 300px !important;
+        background: rgba(8, 12, 20, 0.75) !important;
+        backdrop-filter: blur(35px);
+        -webkit-backdrop-filter: blur(35px);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     section[data-testid="stSidebar"] .block-container {
-        padding-top: 2rem;
+        padding-top: 2.5rem;
+        padding-left: 1.2rem;
+        padding-right: 1.2rem;
+    }
+
+    /* Custom Radio Navigation Styling (iOS Glass Pills) */
+    div[data-testid="stRadio"] > div {
+        gap: 8px !important;
+    }
+
+    div[data-testid="stRadio"] label {
+        background: rgba(255, 255, 255, 0.02) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        color: #94a3b8 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        width: 100% !important;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    div[data-testid="stRadio"] label:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
+        border-color: rgba(56, 189, 248, 0.2) !important;
+    }
+
+    div[data-testid="stRadio"] input:checked + div p {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
+    div[data-testid="stRadio"] label:has(input:checked) {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+        border: 1px solid rgba(56, 189, 248, 0.4) !important;
+        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
     }
 
     .glass-header {
@@ -408,7 +444,6 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                # FIXED SYNTAX ERROR HERE (closed parenthesis instead of bracket)
                 if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
                     traded = True
                     break
@@ -613,7 +648,7 @@ selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] ==
 selected_rid = selected_roster["roster_id"]
 my_row = df_league[df_league["roster_id"] == selected_rid].iloc[0]
 
-# ==================== CONDITIONAL VIEW RENDERER ====================
+# ==================== CONDITIONAL VIEW RENDERER (BASED ON SIDEBAR SLIDEOUT) ====================
 if nav_selection == "👤 Roster & Insights":
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
@@ -930,8 +965,8 @@ elif nav_selection == "⚔️ Fantasy Matchups":
                 """, unsafe_allow_html=True)
 
 elif nav_selection == "🏈 NFL Schedule & Scores":
-    st.markdown("### 🏈 Real-Time NFL Game Center & Scores (Week 3)")
-    st.caption("Live NFL scores, team logos, and prime-time prime game tags (TNF, SNF, MNF).")
+    st.markdown("### 🏈 Real-Time NFL Game Center & Scores")
+    st.caption("Live NFL scores, quarter status, and game schedules.")
     
     try:
         nfl_games_resp = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", timeout=6)
@@ -941,52 +976,20 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                 for ev in events:
                     comp = ev.get("competitions", [{}])[0]
                     competitors = comp.get("competitors", [])
-                    game_date_str = ev.get("date", "")
-                    
-                    prime_tag = ""
-                    try:
-                        g_dt = datetime.fromisoformat(game_date_str.replace("Z", "+00:00"))
-                        weekday = g_dt.weekday()
-                        hour = g_dt.hour
-                        if weekday == 3:
-                            prime_tag = '<span class="badge badge-rookie">TNF</span>'
-                        elif weekday == 0:
-                            prime_tag = '<span class="badge badge-buy">MNF</span>'
-                        elif weekday == 6 and hour >= 20:
-                            prime_tag = '<span class="badge badge-prime">SNF</span>'
-                    except Exception:
-                        pass
-
                     if len(competitors) == 2:
                         team_a, team_b = competitors[0], competitors[1]
-                        
-                        name_a = team_a.get("team", {}).get("shortDisplayName", "Team A")
-                        logo_a = team_a.get("team", {}).get("logo", "")
+                        name_a = team_a.get("team", {}).get("displayName", "Team A")
                         score_a = team_a.get("score", "0")
-                        
-                        name_b = team_b.get("team", {}).get("shortDisplayName", "Team B")
-                        logo_b = team_b.get("team", {}).get("logo", "")
+                        name_b = team_b.get("team", {}).get("displayName", "Team B")
                         score_b = team_b.get("score", "0")
-                        
                         status = comp.get("status", {}).get("type", {}).get("description", "Scheduled")
                         
-                        card_html = (
-                            f'<div class="lineup-row" style="padding: 12px 18px; margin-bottom: 8px;">'
-                            f'  <div style="display: flex; align-items: center; gap: 12px; flex: 1;">'
-                            f'      <img src="{logo_a}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display=\'none\'">'
-                            f'      <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{name_a} <span style="color: #38bdf8; font-size: 15px; margin-left: 4px;">{score_a}</span></div>'
-                            f'  </div>'
-                            f'  <div style="text-align: center; flex: 0 0 100px;">'
-                            f'      {prime_tag}'
-                            f'      <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;">{status}</div>'
-                            f'  </div>'
-                            f'  <div style="display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex: 1;">'
-                            f'      <div style="font-size: 14px; font-weight: 700; color: #f8fafc;"><span style="color: #38bdf8; font-size: 15px; margin-right: 4px;">{score_b}</span> {name_b}</div>'
-                            f'      <img src="{logo_b}" width="28" height="28" style="object-fit: contain;" onerror="this.style.display=\'none\'">'
-                            f'  </div>'
-                            f'</div>'
-                        )
-                        st.markdown(card_html, unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div class="odds-row" style="padding: 12px 16px; margin-bottom: 8px;">
+                            <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{name_a} <strong>{score_a}</strong> - <strong>{score_b}</strong> {name_b}</div>
+                            <div style="font-size: 11px; font-weight: 600; color: #38bdf8;">{status}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
             else:
                 st.info("NFL games for this week are currently between slates.")
         else:
