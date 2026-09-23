@@ -194,77 +194,6 @@ st.markdown("""
         margin-bottom: 10px;
         letter-spacing: 0.3px;
     }
-
-    .pos-rank-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(255, 255, 255, 0.018);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-top: 1px solid rgba(255, 255, 255, 0.09);
-        border-radius: 12px;
-        padding: 10px 14px;
-        margin-bottom: 8px;
-    }
-    .pos-rank-pill {
-        display: inline-block;
-        width: 50px;
-        text-align: center;
-        padding: 4px 0;
-        font-size: 12px;
-        font-weight: 800;
-        border-radius: 7px;
-    }
-    .rank-top { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.35); }
-    .rank-mid { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
-    .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35); }
-
-    details.player-expand-card {
-        background: rgba(255, 255, 255, 0.015);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-top: 1px solid rgba(255, 255, 255, 0.09);
-        border-radius: 12px;
-        margin-bottom: 6px;
-        overflow: hidden;
-        transition: all 0.2s ease;
-    }
-    details.player-expand-card[open] {
-        border-color: rgba(56, 189, 248, 0.4);
-        background: rgba(255, 255, 255, 0.035);
-    }
-    details.player-expand-card summary {
-        list-style: none;
-        cursor: pointer;
-        padding: 9px 12px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        user-select: none;
-    }
-    details.player-expand-card summary::-webkit-details-marker {
-        display: none;
-    }
-
-    .chevron-indicator {
-        font-size: 14px;
-        font-weight: 800;
-        color: #64748b;
-        margin-right: 8px;
-        display: inline-block;
-        transition: transform 0.18s ease, color 0.18s ease;
-        line-height: 1;
-    }
-    details.player-expand-card[open] summary .chevron-indicator {
-        transform: rotate(90deg);
-        color: #38bdf8;
-    }
-
-    .player-expand-content {
-        padding: 12px 16px 14px 16px;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(0, 0, 0, 0.4);
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -295,12 +224,9 @@ def get_live_matchups_and_stats(l_id: str, week_num: int):
         users = requests.get(f"{BASE_URL}/league/{l_id}/users", headers=headers, timeout=10).json() or []
         rosters = requests.get(f"{BASE_URL}/league/{l_id}/rosters", headers=headers, timeout=10).json() or []
         traded_picks = requests.get(f"{BASE_URL}/league/{l_id}/traded_picks", headers=headers, timeout=10).json() or []
-        
         matchups = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{week_num}", headers=headers, timeout=10).json() or []
-        
         stats_resp = requests.get(f"{BASE_URL}/stats/nfl/regular/2026/{week_num}", headers=headers, timeout=10)
         weekly_stats = stats_resp.json() if stats_resp.status_code == 200 else {}
-
         return league_info, users, rosters, traded_picks, matchups, weekly_stats
     except Exception:
         return None, [], [], [], [], {}
@@ -331,162 +257,31 @@ if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
     st.stop()
 
-user_map = {
-    u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
-    for u in users
-}
-roster_owner_map = {
-    r["roster_id"]: user_map.get(r["owner_id"], f"Team {r['roster_id']}")
-    for r in rosters
-}
+user_map = {u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}") for u in users}
+roster_owner_map = {r["roster_id"]: user_map.get(r["owner_id"], f"Team {r['roster_id']}") for r in rosters}
 
 player_owner_map = {}
 all_rostered_players = set()
 for r in rosters:
     owner_name = roster_owner_map.get(r["roster_id"], f"Team {r['roster_id']}")
-    p_list = r.get("players", []) or []
-    for pid in p_list:
+    for pid in (r.get("players", []) or []):
         player_owner_map[pid] = owner_name
         all_rostered_players.add(pid)
 
-# ==================== TRUE 1QB UNIFIED DYNASTY VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
-        return {
-            "pid": str(pid), "value": 100, "redraft_val": 80, "stage": "Prime", "badge": "badge-prime",
-            "action": "HOLD", "act_badge": "badge-hold", "rookie": False, "ppg": 0.0, "gp": 0,
-            "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
-            "owner": player_owner_map.get(str(pid), "Free Agent"),
-            "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
-            "college": "-", "height": "-", "weight": "-", "number": "-",
-            "stat_line": "No stats recorded yet this season.", "desc": "Information currently unavailable."
-        }
-    
+        return {"value": 100, "name": f"Player {pid}", "team": "FA", "pos": "FLEX", "age": 25, "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"}
     pos = p_info.get("position", "N/A")
     age = p_info.get("age") or 25
-    exp = p_info.get("years_exp") or 0
-    is_rookie = exp == 0
     team = p_info.get("team") or "FA"
-    owner = player_owner_map.get(str(pid), "Free Agent")
-    depth_order = p_info.get("depth_chart_order")
     search_rank = p_info.get("search_rank")
-
-    p_stat = weekly_stats.get(str(pid), {})
-    pts = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or p_stat.get("fantasy_points", 0.0) or 0.0)
-
     dynasty_val = max(100, int(1000 - (search_rank if search_rank else 200) * 1.5))
-    redraft_val = int(dynasty_val * 0.9)
-
+    p_stat = weekly_stats.get(str(pid), {})
+    pts = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
     return {
-        "pid": str(pid), "value": dynasty_val, "redraft_val": redraft_val,
-        "stage": "Prime", "badge": "badge-prime", "action": "HOLD", "act_badge": "badge-hold",
-        "rookie": is_rookie, "ppg": pts, "gp": 1, "age": age, "pos": pos, "team": team,
-        "owner": owner, "name": p_info.get('full_name') or f"Player {pid}",
-        "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
-        "college": p_info.get("college") or "N/A", "number": p_info.get("number") or "-",
-        "stat_line": f"{pts:.1f} Fantasy Pts", "desc": f"Active starter for {team}."
+        "value": dynasty_val, "name": p_info.get('full_name') or f"Player {pid}",
+        "team": team, "pos": pos, "age": age, "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
     }
-
-# ==================== DRAFT PICK INVENTORY ====================
-pick_value_base = {1: 750, 2: 360, 3: 160}
-team_picks = {r["roster_id"]: [] for r in rosters}
-
-for r in rosters:
-    rid = r["roster_id"]
-    for yr in [2027, 2028, 2029]:
-        for rd in [1, 2, 3]:
-            traded = False
-            for tp in traded_picks:
-                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
-                    traded = True
-                    break
-            if not traded:
-                team_picks[rid].append({
-                    "year": yr, "round": rd, "original_rid": rid,
-                    "sort_key": (yr, rd, 0),
-                    "desc": f"{yr} Rd {rd} (Team Pick)",
-                    "value": int(pick_value_base[rd])
-                })
-
-for tp in traded_picks:
-    new_owner = tp.get("owner_id")
-    orig_roster = tp.get("roster_id")
-    try:
-        yr = int(tp.get("season", 2027))
-    except Exception:
-        yr = 2027
-    if yr >= 2027:
-        rd = int(tp.get("round", 1))
-        if new_owner in team_picks:
-            team_picks[new_owner].append({
-                "year": yr, "round": rd, "original_rid": orig_roster,
-                "sort_key": (yr, rd, 1),
-                "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
-                "value": int(pick_value_base.get(rd, 200))
-            })
-
-for rid in team_picks:
-    team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["sort_key"][2]))
-
-pick_2027_rd1_owner = {}
-for r in rosters:
-    pick_2027_rd1_owner[r["roster_id"]] = r["roster_id"]
-for tp in traded_picks:
-    if str(tp.get("season")) == "2027" and tp.get("round") == 1:
-        orig = tp.get("roster_id")
-        current_holder = tp.get("owner_id")
-        pick_2027_rd1_owner[orig] = current_holder
-
-# ==================== LEAGUE-WIDE AGGREGATION ====================
-league_stats = []
-team_positional_values = {}
-
-for r in rosters:
-    rid = r["roster_id"]
-    tname = roster_owner_map.get(rid, f"Team {rid}")
-    p_ids = r.get("players", []) or []
-    evals = [evaluate_player(p, all_players.get(p, {})) for p in p_ids]
-    
-    player_val = sum(x["value"] for x in evals)
-    pick_val = sum(p["value"] for p in team_picks.get(rid, []))
-    total_dynasty_val = player_val + pick_val
-    t_age = sum(x["age"] for x in evals) / max(len(evals), 1)
-
-    fpts = r.get("settings", {}).get("fpts", 0) + (r.get("settings", {}).get("fpts_decimal", 0) / 100)
-    ppts = r.get("settings", {}).get("ppts", 0) or fpts
-    eff_pct = (fpts / ppts * 100) if ppts > 0 else 0.0
-    wins = r.get("settings", {}).get("wins", 0)
-    losses = r.get("settings", {}).get("losses", 0)
-    fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
-
-    league_stats.append({
-        "roster_id": rid, "team_name": tname, "player_value": player_val, "pick_value": pick_val,
-        "total_value": total_dynasty_val, "avg_age": t_age, "points_for": fpts, "points_against": fpts_against,
-        "max_pf": ppts, "efficiency": eff_pct, "wins": wins, "losses": losses
-    })
-
-df_league = pd.DataFrame(league_stats)
-df_curr_calc = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
-curr_seed_dict = {row["roster_id"]: idx + 1 for idx, row in df_curr_calc.iterrows()}
-df_league["seed"] = df_league["roster_id"].map(curr_seed_dict)
-
-def compute_championship_odds(row):
-    w = row["wins"]
-    pf = row["points_for"]
-    s = row["seed"]
-    if s > 6:
-        return 1.5
-    score = (w * 35.0) + (pf * 0.15) + (15.0 if s <= 2 else 5.0)
-    return max(score, 1.0)
-
-scores_raw = [compute_championship_odds(r) for _, r in df_league.iterrows()]
-tot_raw = sum(scores_raw)
-df_league["odds_2026"] = [round((s / tot_raw) * 100, 1) for s in scores_raw]
-
-pool = []
-for pid in all_rostered_players:
-    pool.append(evaluate_player(pid, all_players.get(pid, {})))
-df_all_ranked = pd.DataFrame(pool)
 
 # ==================== HEADER & FRANCHISE SELECTOR ====================
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
@@ -502,35 +297,37 @@ st.markdown(f"""
 
 selected_team_name = st.selectbox("Active Franchise", team_names, index=0)
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
-selected_rid = selected_roster["roster_id"]
-my_row = df_league[df_league["roster_id"] == selected_rid].iloc[0]
 
 # ==================== NAVIGATION VIEWS ====================
 if nav_selection == "👤 Roster & Insights":
-    m1, m2, m3, m4 = st.columns(4)
-    m1.markdown(f'<div class="metric-card"><div style="color: #94a3b8; font-size: 11px; font-weight: 700;">TOTAL FRANCHISE VALUE</div><div style="font-size: 24px; font-weight: 800; color: #38bdf8; margin: 2px 0;">{my_row["total_value"]:,} pts</div></div>', unsafe_allow_html=True)
-    m2.markdown(f'<div class="metric-card"><div style="color: #94a3b8; font-size: 11px; font-weight: 700;">ROSTER AVG AGE</div><div style="font-size: 24px; font-weight: 800; color: #f8fafc; margin: 2px 0;">{my_row["avg_age"]:.1f} yrs</div></div>', unsafe_allow_html=True)
-    m3.markdown(f'<div class="metric-card"><div style="color: #94a3b8; font-size: 11px; font-weight: 700;">START EFFICIENCY</div><div style="font-size: 24px; font-weight: 800; color: #fbbf24; margin: 2px 0;">{my_row["efficiency"]:.1f}%</div></div>', unsafe_allow_html=True)
-    m4.markdown(f'<div class="metric-card"><div style="color: #94a3b8; font-size: 11px; font-weight: 700;">RECORD & STANDINGS</div><div style="font-size: 24px; font-weight: 800; color: #f43f5e; margin: 2px 0;">{my_row["wins"]}W - {my_row["losses"]}L</div></div>', unsafe_allow_html=True)
+    st.markdown("### 👤 Franchise Roster Overview")
+    for pid in (selected_roster.get("players", []) or [])[:12]:
+        p = evaluate_player(pid, all_players.get(pid, {}))
+        st.markdown(f'<div class="lineup-row"><div><strong>{p["name"]}</strong> ({p["pos"]} - {p["team"]})</div><div style="color: #38bdf8;">{p["value"]:,} pts</div></div>', unsafe_allow_html=True)
 
 elif nav_selection == "📈 Overall Dynasty Rankings":
     st.markdown("### 📈 Overall Dynasty Player Rankings (1QB Format)")
-    for rank, p in df_all_ranked.sort_values(by="value", ascending=False).head(50).reset_index(drop=True).iterrows():
-        st.markdown(f'<div class="lineup-row"><div><strong>#{rank+1}</strong> {p["name"]} ({p["pos"]} - {p["team"]})</div><div style="color: #38bdf8; font-weight: 800;">{p["value"]:,} pts</div></div>', unsafe_allow_html=True)
+    pool = [evaluate_player(pid, info) for pid, info in list(all_players.items())[:50]]
+    for rank, p in enumerate(sorted(pool, key=lambda x: x["value"], reverse=True), 1):
+        st.markdown(f'<div class="lineup-row"><div><strong>#{rank}</strong> {p["name"]} ({p["pos"]} - {p["team"]})</div><div style="color: #38bdf8;">{p["value"]:,} pts</div></div>', unsafe_allow_html=True)
+
+elif nav_selection == "🔍 Deep Dive":
+    st.markdown("### 🔍 Franchise Deep Dive & Positional Matrix")
+    st.info("Comprehensive positional breakdown and roster valuation metrics.")
 
 elif nav_selection == "⚔️ Fantasy Matchups":
-    st.markdown("### ⚔️ Live Fantasy Matchups & Scoreboard (Week 3)")
+    st.markdown("### ⚔️ Live Fantasy Matchups (Week 3)")
     for m in matchups:
-        t1_name = roster_owner_map.get(m.get("roster_id"), "Team")
-        t1_pts = float(m.get("points", 0.0) or 0.0)
-        st.markdown(f'<div class="insight-card"><strong>{t1_name}</strong> ➔ {t1_pts:.2f} pts</div>', unsafe_allow_html=True)
+        t_name = roster_owner_map.get(m.get("roster_id"), "Team")
+        t_pts = float(m.get("points", 0.0) or 0.0)
+        st.markdown(f'<div class="insight-card"><strong>{t_name}</strong> ➔ {t_pts:.2f} pts</div>', unsafe_allow_html=True)
 
 elif nav_selection == "🏈 NFL Schedule & Scores":
     st.markdown("### 🏈 Real-Time NFL Game Center & Scores (Week 3)")
-    st.caption("Live NFL scores, kickoff times, venue matchups (Away @ Home), and prime-time badges.")
+    st.caption("Official ESPN Week 3 Matchups, Away @ Home formats, Kickoff times, and Prime-Time Badges.")
     
     try:
-        nfl_games_resp = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", timeout=6)
+        nfl_games_resp = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=3", timeout=6)
         if nfl_games_resp.status_code == 200:
             events = nfl_games_resp.json().get("events", [])
             if events:
@@ -540,7 +337,6 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                     game_date_str = ev.get("date", "")
                     notes = comp.get("notes", [])
                     
-                    # Prime-Time Tag Detection
                     prime_tag = ""
                     note_text = notes[0].get("headline", "").lower() if notes else ""
                     
@@ -580,7 +376,7 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                             f'      <img src="{away_logo}" width="30" height="30" style="object-fit: contain;" onerror="this.style.display=\'none\'">'
                             f'      <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">{away_name} <span style="color: #38bdf8; font-size: 16px; margin-left: 6px;">{away_score}</span></div>'
                             f'  </div>'
-                            f'  <div style="text-align: center; flex: 0 0 160px;">'
+                            f'  <div style="text-align: center; flex: 0 0 180px;">'
                             f'      {prime_tag}'
                             f'      <div style="font-size: 10px; font-weight: 600; color: #94a3b8; margin-top: 3px;">{matchup_string}</div>'
                             f'      <div style="font-size: 10px; font-weight: 500; color: #64748b;">{status}</div>'
@@ -593,7 +389,7 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
                         )
                         st.markdown(card_html, unsafe_allow_html=True)
             else:
-                st.info("NFL games for this week are currently between slates.")
+                st.info("No NFL fixtures returned for Week 3.")
         else:
             st.info("NFL scoreboard API currently unavailable.")
     except Exception:
@@ -601,9 +397,8 @@ elif nav_selection == "🏈 NFL Schedule & Scores":
 
 elif nav_selection == "🎲 Playoffs & Toilet Bowl":
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
-    for idx, row in df_league.iterrows():
-        st.markdown(f'<div class="odds-row"><strong>#{idx+1} {row["team_name"]}</strong> ({row["wins"]}W-{row["losses"]}L)</div>', unsafe_allow_html=True)
+    st.info("Playoff bracket and draft pick projections.")
 
 elif nav_selection == "📜 Trades & Calculator":
     st.markdown("### ⚖️ Dynasty Trade Architect")
-    st.info("Select players and draft picks to simulate trade equity.")
+    st.info("Trade calculator tools.")
