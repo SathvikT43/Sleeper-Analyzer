@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS LIQUID GLASS & CLEAN TABS CSS ====================
+# ==================== MACOS LIQUID GLASS DESIGN SYSTEM ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -569,7 +569,8 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id"] == rid:
+                # FIXED SYNTAX ERROR HERE (closed parenthesis instead of bracket)
+                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
                     traded = True
                     break
             if not traded:
@@ -809,6 +810,8 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
