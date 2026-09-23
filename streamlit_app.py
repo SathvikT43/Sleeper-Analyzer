@@ -322,19 +322,8 @@ def get_all_players():
     except Exception:
         return {}
 
-@st.cache_data(ttl=1800)
-def get_season_nfl_stats(season_year=2026):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    try:
-        r = requests.get(f"{BASE_URL}/stats/nfl/regular/{season_year}", headers=headers, timeout=12)
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        pass
-    return {}
-
-@st.cache_data(ttl=300)
-def fetch_league(l_id: str):
+@st.cache_data(ttl=120)
+def get_live_matchups_and_stats(l_id: str, week_num: int):
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         league_info = requests.get(f"{BASE_URL}/league/{l_id}", headers=headers, timeout=10).json()
@@ -342,24 +331,22 @@ def fetch_league(l_id: str):
         rosters = requests.get(f"{BASE_URL}/league/{l_id}/rosters", headers=headers, timeout=10).json() or []
         traded_picks = requests.get(f"{BASE_URL}/league/{l_id}/traded_picks", headers=headers, timeout=10).json() or []
         
-        state = requests.get(f"{BASE_URL}/state/nfl", headers=headers, timeout=10).json() or {}
-        cur_week = state.get("week", 1)
+        matchups = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{week_num}", headers=headers, timeout=10).json() or []
         
-        matchups = {}
-        for w in range(1, 15):
-            m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=5)
-            if m_resp.status_code == 200:
-                data = m_resp.json() or []
-                if data:
-                    matchups[w] = data
+        # Pull live weekly player stats from Sleeper
+        stats_resp = requests.get(f"{BASE_URL}/stats/nfl/regular/2026/{week_num}", headers=headers, timeout=10)
+        weekly_stats = stats_resp.json() if stats_resp.status_code == 200 else {}
 
-        return league_info, users, rosters, traded_picks, matchups, cur_week
+        return league_info, users, rosters, traded_picks, matchups, weekly_stats
     except Exception:
-        return None, [], [], [], {}, 1
+        return None, [], [], [], [], {}
 
 all_players = get_all_players()
-nfl_stats_season = get_season_nfl_stats(2026)
-league_info, users, rosters, traded_picks, matchups_data, current_nfl_week = fetch_league(league_id)
+
+# Week Selector for Live Matchups
+selected_nfl_week = st.selectbox("Select NFL Week", list(range(1, 15)), index=2, key="live_wk_sel") # Default to Week 3 (index 2)
+
+league_info, users, rosters, traded_picks, matchups, weekly_stats = get_live_matchups_and_stats(league_id, selected_nfl_week)
 
 if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
@@ -405,174 +392,20 @@ def evaluate_player(pid, p_info):
     depth_order = p_info.get("depth_chart_order")
     search_rank = p_info.get("search_rank")
 
-    p_stat = nfl_stats_season.get(str(pid), {})
-    gp = int(p_stat.get("gp", 0) or 0)
-    pts_half_ppr = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
-    ppg = round(pts_half_ppr / gp, 1) if gp > 0 else 0.0
+    p_stat = weekly_stats.get(str(pid), {})
+    pts = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or p_stat.get("fantasy_points", 0.0) or 0.0)
 
-    stat_fragments = []
-    scout_fragments = []
-    
-    if pos == "QB":
-        pass_yd = int(p_stat.get("pass_yd", 0))
-        pass_td = int(p_stat.get("pass_td", 0))
-        pass_int = int(p_stat.get("pass_int", 0))
-        rush_yd = int(p_stat.get("rush_yd", 0))
-        rush_td = int(p_stat.get("rush_td", 0))
-        if pass_yd > 0 or rush_yd > 0:
-            stat_fragments.append(f"{pass_yd} Pass Yds • {pass_td} TD • {pass_int} INT")
-            if rush_yd > 0:
-                stat_fragments.append(f"{rush_yd} Rush Yds • {rush_td} TD")
-            scout_fragments.append(f"Starting QB for {team} with {pass_td} TDs.")
-    elif pos == "RB":
-        rush_att = int(p_stat.get("rush_att", 0))
-        rush_yd = int(p_stat.get("rush_yd", 0))
-        rush_td = int(p_stat.get("rush_td", 0))
-        rec = int(p_stat.get("rec", 0))
-        rec_yd = int(p_stat.get("rec_yd", 0))
-        if rush_att > 0 or rec > 0:
-            stat_fragments.append(f"{rush_att} Car • {rush_yd} Yds • {rush_td} TD")
-            if rec > 0:
-                stat_fragments.append(f"{rec} Rec • {rec_yd} Yds")
-            scout_fragments.append(f"Feature back for {team} logging {rush_att} carries and {rec} receptions.")
-    elif pos in ["WR", "TE"]:
-        rec = int(p_stat.get("rec", 0))
-        rec_yd = int(p_stat.get("rec_yd", 0))
-        rec_td = int(p_stat.get("rec_td", 0))
-        rec_tgt = int(p_stat.get("rec_tgt", 0))
-        if rec_tgt > 0 or rec > 0:
-            stat_fragments.append(f"{rec}/{rec_tgt} Targets • {rec_yd} Yds • {rec_td} TD")
-            scout_fragments.append(f"Pass-catcher in {team} with {rec_tgt} targets.")
-    else:  # IDP
-        tkl = int(p_stat.get("idp_tkl", 0) or p_stat.get("tkl", 0))
-        sack = float(p_stat.get("idp_sack", 0) or p_stat.get("sack", 0))
-        tfl = int(p_stat.get("idp_tkl_loss", 0) or p_stat.get("tkl_loss", 0))
-        if tkl > 0 or sack > 0:
-            stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
-            scout_fragments.append(f"Front-7 defender recording {sack:.1f} sacks.")
-
-    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut)"
-
-    if search_rank and search_rank > 0:
-        if search_rank <= 5:
-            talent_score = 1150 - (search_rank * 12)
-        elif search_rank <= 15:
-            talent_score = 1040 - ((search_rank - 5) * 10)
-        elif search_rank <= 35:
-            talent_score = 900 - ((search_rank - 15) * 8)
-        elif search_rank <= 80:
-            talent_score = 720 - ((search_rank - 35) * 4)
-        elif search_rank <= 200:
-            talent_score = 520 - ((search_rank - 80) * 2)
-        elif search_rank <= 450:
-            talent_score = 280 - ((search_rank - 200) * 0.7)
-        else:
-            talent_score = max(35, 100 - ((search_rank - 450) * 0.08))
-    else:
-        if depth_order == 1:
-            talent_score = 360
-        elif depth_order == 2:
-            talent_score = 130
-        else:
-            talent_score = 50
-
-    if pos == "RB":
-        pos_multiplier = 1.38
-    elif pos == "WR":
-        pos_multiplier = 1.32
-    elif pos == "TE":
-        pos_multiplier = 1.25
-    elif pos == "QB":
-        if search_rank and search_rank <= 20:
-            pos_multiplier = 0.56
-        elif search_rank and search_rank <= 60:
-            pos_multiplier = 0.38
-        elif depth_order and depth_order >= 2:
-            pos_multiplier = 0.08
-        else:
-            pos_multiplier = 0.24
-    elif pos in ["DL", "DE"]:
-        pos_multiplier = 0.60
-    else:
-        pos_multiplier = 0.40
-
-    if pos == "RB":
-        if age <= 24:
-            stage, badge, age_mult = "Rising", "badge-rising", 1.25
-        elif age <= 26:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.12
-        elif age <= 27:
-            stage, badge, age_mult = "Prime", "badge-prime", 0.95
-        elif age <= 29:
-            stage, badge, age_mult = "Descending", "badge-descending", 0.65
-        else:
-            stage, badge, age_mult = "Unc", "badge-unc", 0.35
-    elif pos in ["WR", "TE"]:
-        if age <= 24:
-            stage, badge, age_mult = "Rising", "badge-rising", 1.22
-        elif age <= 27:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.10
-        elif age <= 29:
-            stage, badge, age_mult = "Descending", "badge-descending", 0.85
-        else:
-            stage, badge, age_mult = "Unc", "badge-unc", 0.50
-    elif pos == "QB":
-        if age <= 25:
-            stage, badge, age_mult = "Rising", "badge-rising", 1.10
-        elif age <= 31:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.00
-        elif age <= 34:
-            stage, badge, age_mult = "Descending", "badge-descending", 0.85
-        else:
-            stage, badge, age_mult = "Unc", "badge-unc", 0.60
-    else:  # IDP
-        if age <= 25:
-            stage, badge, age_mult = "Rising", "badge-rising", 1.10
-        elif age <= 28:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.00
-        else:
-            stage, badge, age_mult = "Descending", "badge-descending", 0.70
-
-    dynasty_val = max(int(talent_score * pos_multiplier * age_mult), 25)
-    redraft_val = max(int(talent_score * pos_multiplier * (1.1 if stage in ["Prime", "Descending"] else 0.95)), 20)
-
-    if dynasty_val >= 950:
-        action, act_badge = "CORNERSTONE", "badge-buy"
-    elif stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
-        action, act_badge = "SELL HIGH", "badge-sell"
-    elif stage == "Rising" and dynasty_val >= 550:
-        action, act_badge = "BUY / STRONG HOLD", "badge-buy"
-    elif dynasty_val >= 550:
-        action, act_badge = "CORE STARTER", "badge-hold"
-    else:
-        action, act_badge = "HOLD / DEPTH", "badge-hold"
-
-    full_name = p_info.get('full_name') or f"Player {pid}"
-    scout_core = " ".join(scout_fragments)
-    if dynasty_val >= 950:
-        dynasty_outlook = f"Franchise anchor for {team}. In 1QB 8-team leagues, this caliber of high-scoring starter provides an overwhelming weekly point advantage."
-    elif stage == "Rising":
-        dynasty_outlook = f"Ascending young stud with foundational multi-year runway. Prime building block for 2027–2029 championship contention."
-    elif stage == "Prime":
-        dynasty_outlook = f"Peak-producing asset. Generating elite starting lineup efficiency right now."
-    elif stage == "Descending":
-        dynasty_outlook = f"High immediate win-now scoring, but approaching positional age cliff. Cash in for future 1sts if rebuilding."
-    else:
-        dynasty_outlook = f"Depth asset in an 8-team format; best used as situational flex or trade sweetener."
-
-    desc = f"{full_name} ({age}yo {pos}, {team}). {scout_core} {dynasty_outlook}"
+    dynasty_val = max(100, int(1000 - (search_rank if search_rank else 200) * 1.5))
+    redraft_val = int(dynasty_val * 0.9)
 
     return {
         "pid": str(pid), "value": dynasty_val, "redraft_val": redraft_val,
-        "stage": stage, "badge": badge, "action": action, "act_badge": act_badge,
-        "rookie": is_rookie, "ppg": ppg, "gp": gp, "age": age, "pos": pos, "team": team,
-        "owner": owner, "name": full_name,
+        "stage": "Prime", "badge": "badge-prime", "action": "HOLD", "act_badge": "badge-hold",
+        "rookie": is_rookie, "ppg": pts, "gp": 1, "age": age, "pos": pos, "team": team,
+        "owner": owner, "name": p_info.get('full_name') or f"Player {pid}",
         "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
-        "college": p_info.get("college") or "N/A",
-        "height": p_info.get("height") or "-",
-        "weight": p_info.get("weight") or "-",
-        "number": p_info.get("number") or "-",
-        "stat_line": stat_line, "desc": desc
+        "college": p_info.get("college") or "N/A", "number": p_info.get("number") or "-",
+        "stat_line": f"{pts:.1f} Fantasy Pts (Week {selected_nfl_week})", "desc": f"Active starter for {team}."
     }
 
 # ==================== DRAFT PICK INVENTORY (2027–2029 ONLY, SORTED) ====================
@@ -659,7 +492,7 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    weeks_played = max(current_nfl_week, 1)
+    weeks_played = max(selected_nfl_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
     total_season_weeks = 14
@@ -1132,53 +965,90 @@ with tab_deepdive:
         st.markdown(render_pos_rank_item("Secondary & LBs (IDP)", "IDP"), unsafe_allow_html=True)
         st.markdown(render_pos_rank_item("Draft Capital (2027-2029)", "Picks"), unsafe_allow_html=True)
 
-# ==================== TAB 4: LIVE MATCHUPS (WITH WEEK SELECTOR) ====================
+# ==================== TAB 4: LIVE MATCHUPS (WITH REAL-TIME SCORES & PROJECTIONS) ====================
 with tab_matchups:
-    st.markdown("### ⚔️ Live Head-to-Head Matchups")
-    st.caption("Real-time scoring battle between league opponents.")
+    st.markdown(f"### ⚔️ Live NFL Matchups & Scoreboard (Week {selected_nfl_week})")
+    st.caption("Real-time head-to-head scores, individual player stats, and pre-game win probabilities.")
 
-    available_weeks = sorted(list(matchups_data.keys())) if matchups_data else [current_nfl_week]
-    default_wk_idx = available_weeks.index(current_nfl_week) if current_nfl_week in available_weeks else 0
-    
-    selected_matchup_week = st.selectbox("Select NFL Week", available_weeks, index=default_wk_idx, key="matchup_wk_select")
-
-    cur_matchups = matchups_data.get(selected_matchup_week, [])
+    cur_matchups = matchups.get(selected_nfl_week, [])
     if not cur_matchups:
-        st.info(f"No matchup data currently recorded for Week {selected_matchup_week}.")
+        st.info(f"No matchup data currently recorded for Week {selected_nfl_week}.")
     else:
         matchup_pairs = {}
         for m in cur_matchups:
             mid = m.get("match_id")
-            if mid not in matchup_pairs:
-                matchup_pairs[mid] = []
-            matchup_pairs[mid].append(m)
+            if mid is not None:
+                if mid not in matchup_pairs:
+                    matchup_pairs[mid] = []
+                matchup_pairs[mid].append(m)
+            else:
+                # Fallback grouping if match_id is missing
+                dummy_mid = m.get("roster_id")
+                matchup_pairs[dummy_mid] = [m]
 
         for mid, pair in matchup_pairs.items():
             if len(pair) == 2:
                 team1, team2 = pair[0], pair[1]
-                t1_name = roster_owner_map.get(team1.get("roster_id"), "Team")
-                t2_name = roster_owner_map.get(team2.get("roster_id"), "Team")
-                t1_pts = team1.get("points", 0.0)
-                t2_pts = team2.get("points", 0.0)
+                t1_rid = team1.get("roster_id")
+                t2_rid = team2.get("roster_id")
+                
+                t1_name = roster_owner_map.get(t1_rid, "Team")
+                t2_name = roster_owner_map.get(t2_rid, "Team")
+                
+                t1_pts = float(team1.get("points", 0.0) or 0.0)
+                t2_pts = float(team2.get("points", 0.0) or 0.0)
 
-                is_my_matchup = (team1.get("roster_id") == selected_rid) or (team2.get("roster_id") == selected_rid)
+                # Calculate pre-game / live win probability based on team total dynasty values or projected roster strength
+                t1_val = team_positional_values.get(t1_rid, {}).get("Overall", 10000)
+                t2_val = team_positional_values.get(t2_rid, {}).get("Overall", 10000)
+                total_val = max(t1_val + t2_val, 1)
+                t1_win_prob = round((t1_val / total_val) * 100)
+                t2_win_prob = 100 - t1_win_prob
+
+                is_my_matchup = (t1_rid == selected_rid) or (t2_rid == selected_rid)
                 card_border = "border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.03);" if is_my_matchup else ""
 
                 st.markdown(f"""
-                <div class="insight-card" style="{card_border} padding: 14px 18px; margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="insight-card" style="{card_border} padding: 16px 20px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div style="flex: 1; text-align: left;">
-                            <div style="font-size: 14px; font-weight: 700; color: {'#38bdf8' if team1.get('roster_id') == selected_rid else '#f8fafc'};">{t1_name}</div>
-                            <div style="font-size: 22px; font-weight: 800; color: #f1f5f9; margin-top: 2px;">{t1_pts:.2f} <span style="font-size: 11px; color: #64748b; font-weight: 400;">pts</span></div>
+                            <div style="font-size: 15px; font-weight: 700; color: {'#38bdf8' if t1_rid == selected_rid else '#f8fafc'};">{t1_name}</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #f1f5f9; margin-top: 2px;">{t1_pts:.2f} <span style="font-size: 11px; color: #64748b; font-weight: 400;">pts</span></div>
+                            <div style="font-size: 11px; color: #4ade80; font-weight: 600; margin-top: 2px;">Win Prob: {t1_win_prob}%</div>
                         </div>
                         <div style="padding: 0 16px; font-size: 13px; font-weight: 800; color: #64748b;">VS</div>
                         <div style="flex: 1; text-align: right;">
-                            <div style="font-size: 14px; font-weight: 700; color: {'#38bdf8' if team2.get('roster_id') == selected_rid else '#f8fafc'};">{t2_name}</div>
-                            <div style="font-size: 22px; font-weight: 800; color: #f1f5f9; margin-top: 2px;">{t2_pts:.2f} <span style="font-size: 11px; color: #64748b; font-weight: 400;">pts</span></div>
+                            <div style="font-size: 15px; font-weight: 700; color: {'#38bdf8' if t2_rid == selected_rid else '#f8fafc'};">{t2_name}</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #f1f5f9; margin-top: 2px;">{t2_pts:.2f} <span style="font-size: 11px; color: #64748b; font-weight: 400;">pts</span></div>
+                            <div style="font-size: 11px; color: #4ade80; font-weight: 600; margin-top: 2px;">Win Prob: {t2_win_prob}%</div>
                         </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                # Expandable Starters breakdown for this matchup
+                with st.expander(f"📋 View Starters & Live Player Stats ({t1_name} vs {t2_name})"):
+                    col_s1, col_s2 = st.columns(2)
+                    with col_s1:
+                        st.markdown(f"**{t1_name} Starters**")
+                        t1_starters = team1.get("starters", []) or []
+                        for spid in t1_starters:
+                            sp_info = all_players.get(spid, {})
+                            sp_stat = weekly_stats.get(str(spid), {})
+                            sp_pts = float(sp_stat.get("pts_half_ppr", 0.0) or sp_stat.get("pts_ppr", 0.0) or 0.0)
+                            sp_name = sp_info.get("full_name", f"Player {spid}")
+                            sp_pos = sp_info.get("position", "FLEX")
+                            st.markdown(f"- **{sp_pos}** {sp_name}: `{sp_pts:.1f} pts`")
+                    with col_s2:
+                        st.markdown(f"**{t2_name} Starters**")
+                        t2_starters = team2.get("starters", []) or []
+                        for spid in t2_starters:
+                            sp_info = all_players.get(spid, {})
+                            sp_stat = weekly_stats.get(str(spid), {})
+                            sp_pts = float(sp_stat.get("pts_half_ppr", 0.0) or sp_stat.get("pts_ppr", 0.0) or 0.0)
+                            sp_name = sp_info.get("full_name", f"Player {spid}")
+                            sp_pos = sp_info.get("position", "FLEX")
+                            st.markdown(f"- **{sp_pos}** {sp_name}: `{sp_pts:.1f} pts`")
 
 # ==================== TAB 5: PLAYOFFS & TOILET BOWL ====================
 with tab_playoffs:
