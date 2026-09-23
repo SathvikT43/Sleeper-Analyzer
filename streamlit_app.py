@@ -475,11 +475,10 @@ def evaluate_player(pid, p_info):
         "stat_line": stat_line, "desc": desc
     }
 
-# ==================== DRAFT PICK INVENTORY ====================
+# ==================== DRAFT PICK INVENTORY & TRADE MAPPING ====================
 pick_value_base = {1: 750, 2: 360, 3: 160}
 team_picks = {r["roster_id"]: [] for r in rosters}
 
-# Pre-map pick ownership for 2027-2029
 for r in rosters:
     rid = r["roster_id"]
     for yr in [2027, 2028, 2029]:
@@ -611,13 +610,11 @@ df_league = pd.DataFrame(league_stats)
 
 # Current Standings calculation
 df_curr_calc = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
-df_curr_calc["calc_seed"] = range(1, len(df_curr_calc) + 1)
-curr_seed_dict = dict(zip(df_curr_calc["roster_id"], df_curr_calc["calc_seed"]))
+curr_seed_dict = {row["roster_id"]: idx + 1 for idx, row in df_curr_calc.iterrows()}
 
 # Projected Standings calculation
 df_proj_calc = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
-df_proj_calc["calc_proj_seed"] = range(1, len(df_proj_calc) + 1)
-proj_seed_dict = dict(zip(df_proj_calc["roster_id"], df_proj_calc["calc_proj_seed"]))
+proj_seed_dict = {row["roster_id"]: idx + 1 for idx, row in df_proj_calc.iterrows()}
 
 df_league["seed"] = df_league["roster_id"].map(curr_seed_dict)
 df_league["proj_seed"] = df_league["roster_id"].map(proj_seed_dict)
@@ -721,6 +718,8 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
@@ -1232,7 +1231,7 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL (CLEAN UNINDENTED HTML) ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL (FIXED SAFE DICTIONARY LOOKUPS) ====================
 with tab_playoffs:
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
     st.caption("Official standings sorted by Win-Loss record, then Points For (PF). Seeds 1–6 advance to the playoffs. Seeds 7 & 8 play in the Toilet Bowl for Pick 1.01.")
@@ -1240,8 +1239,8 @@ with tab_playoffs:
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
     is_proj_mode = "Projected" in standings_mode
 
-    # Use pre-sorted clean dataframes
-    active_standings = df_proj_calc if is_proj_mode else df_curr_calc
+    # Use pure list of dictionaries to completely avoid pandas Series KeyError
+    active_standings_list = df_proj_calc.to_dict('records') if is_proj_mode else df_curr_calc.to_dict('records')
 
     c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
 
@@ -1249,18 +1248,18 @@ with tab_playoffs:
         header_label = "🔮 Projected Final Playoff Bracket (Seeds 1 to 6)" if is_proj_mode else "🥇 Current Playoff Bracket (Seeds 1 to 6)"
         st.markdown(f'<div class="section-header">{header_label}</div>', unsafe_allow_html=True)
         
-        for idx in range(min(6, len(active_standings))):
-            row = active_standings.iloc[idx]
+        for idx in range(min(6, len(active_standings_list))):
+            row = active_standings_list[idx]
             s_num = idx + 1
             bye_tag = '<span class="badge badge-rising">FIRST ROUND BYE</span>' if s_num <= 2 else '<span class="badge badge-hold">QUARTERFINALS</span>'
             is_me = row['team_name'] == selected_team_name
             highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #1c2333; background: #11151f;"
             
-            p_wins = row["proj_wins"]
-            p_loss = row["proj_losses"]
-            p_pf = row["proj_pf"]
-            p_mpf = row["proj_max_pf"]
-            p_seed = row["proj_seed"]
+            p_wins = row.get("proj_wins", row["wins"])
+            p_loss = row.get("proj_losses", row["losses"])
+            p_pf = row.get("proj_pf", row["points_for"])
+            p_mpf = row.get("proj_max_pf", row["max_pf"])
+            p_seed = row.get("proj_seed", s_num)
 
             if is_proj_mode:
                 stat_display = f'<div style="font-size: 11px; color: #38bdf8; margin-top: 3px;"><strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}</div><div style="font-size: 10px; color: #64748b;">(Current Record: {row["wins"]}W - {row["losses"]}L | {row["points_for"]:.1f} PF)</div>'
@@ -1288,20 +1287,19 @@ with tab_playoffs:
         toilet_header = "🚽 Projected Toilet Bowl (Seeds 7 & 8 Finishers)" if is_proj_mode else "🚽 Current Toilet Bowl (Teams in Seeds 7 & 8)"
         st.markdown(f'<div class="section-header">{toilet_header}</div>', unsafe_allow_html=True)
         
-        team_7 = active_standings.iloc[6]
-        team_8 = active_standings.iloc[7]
+        team_7 = active_standings_list[6]
+        team_8 = active_standings_list[7]
 
-        mpf_col = "proj_max_pf" if is_proj_mode else "max_pf"
+        mpf_key = "proj_max_pf" if is_proj_mode else "max_pf"
         
         # Determine 1.01 winner by lower Max PF between 7 & 8
-        if team_7[mpf_col] < team_8[mpf_col]:
+        if team_7[mpf_key] < team_8[mpf_key]:
             pick_101_orig_team = team_7
             pick_102_orig_team = team_8
         else:
             pick_101_orig_team = team_8
             pick_102_orig_team = team_7
 
-        # Check if the 1.01 and 1.02 picks were traded away!
         owner_101_rid = pick_2027_rd1_owner.get(pick_101_orig_team['roster_id'], pick_101_orig_team['roster_id'])
         owner_101_name = roster_owner_map.get(owner_101_rid, pick_101_orig_team['team_name'])
         is_101_traded = owner_101_rid != pick_101_orig_team['roster_id']
@@ -1329,7 +1327,7 @@ with tab_playoffs:
             f'<strong style="color: #f8fafc; font-size: 13px;">{display_101}</strong>'
             f'<div style="font-size: 11px; color: #94a3b8;">{p1_rec}</div>'
             f'</div>'
-            f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_orig_team[mpf_col]:.1f} Max PF</span>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_orig_team[mpf_key]:.1f} Max PF</span>'
             f'</div>'
             f'</div>'
             f'<div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">'
@@ -1339,7 +1337,7 @@ with tab_playoffs:
             f'<strong style="color: #f8fafc; font-size: 13px;">{display_102}</strong>'
             f'<div style="font-size: 11px; color: #94a3b8;">{p2_rec}</div>'
             f'</div>'
-            f'<span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_orig_team[mpf_col]:.1f} Max PF</span>'
+            f'<span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_orig_team[mpf_key]:.1f} Max PF</span>'
             f'</div>'
             f'</div>'
             f'</div>'
@@ -1349,18 +1347,17 @@ with tab_playoffs:
         board_header = "🎯 Projected 2027 Round 1 Draft Order (End-of-Season Simulation)" if is_proj_mode else "🎯 Projected 2027 Round 1 Draft Order (Current Standings)"
         st.markdown(f'<div class="section-header">{board_header}</div>', unsafe_allow_html=True)
         
-        # Sort playoff teams (seeds 1 to 6) in reverse Max PF order (lowest Max PF gets Pick 1.03 -> highest gets 1.08)
-        playoff_six_sorted = active_standings.iloc[:6].sort_values(by=mpf_col, ascending=True).reset_index(drop=True)
+        # Sort playoff teams (seeds 1 to 6) in reverse Max PF order
+        playoff_six_sorted = sorted(active_standings_list[:6], key=lambda x: x[mpf_key])
         
         full_proj_order = [
-            (pick_101_orig_team['roster_id'], pick_101_orig_team['team_name'], pick_101_orig_team[mpf_col]),
-            (pick_102_orig_team['roster_id'], pick_102_orig_team['team_name'], pick_102_orig_team[mpf_col])
+            (pick_101_orig_team['roster_id'], pick_101_orig_team['team_name'], pick_101_orig_team[mpf_key]),
+            (pick_102_orig_team['roster_id'], pick_102_orig_team['team_name'], pick_102_orig_team[mpf_key])
         ]
-        for p_row in playoff_six_sorted.itertuples():
-            full_proj_order.append((p_row.roster_id, p_row.team_name, getattr(p_row, mpf_col)))
+        for p_row in playoff_six_sorted:
+            full_proj_order.append((p_row['roster_id'], p_row['team_name'], p_row[mpf_key]))
 
         for slot_idx, (orig_rid, orig_tname, mpf_val) in enumerate(full_proj_order, 1):
-            # Check who actually owns this draft pick today!
             curr_holder_rid = pick_2027_rd1_owner.get(orig_rid, orig_rid)
             curr_holder_name = roster_owner_map.get(curr_holder_rid, orig_tname)
             is_traded = curr_holder_rid != orig_rid
