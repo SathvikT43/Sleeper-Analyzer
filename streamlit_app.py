@@ -1374,17 +1374,17 @@ with tab_playoffs:
 # ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals. Separate players and draft picks independently to evaluate equity.")
+    st.caption("Construct multi-asset trade proposals. Search and select players and draft picks independently to evaluate equity.")
 
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
     # --- FRANCHISE A ---
     with c_pod_a:
         st.markdown("""
-        <div style="border-top: 3px solid #38bdf8; padding-top: 6px; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px;">FRANCHISE A (YOUR SIDE)</span>
-        </div>
+        <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #38bdf8; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">FRANCHISE A (YOUR SIDE)</div>
         """, unsafe_allow_html=True)
+        
         ta = st.selectbox("Select Franchise A", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
         
         r_a = next(r for r in rosters if roster_owner_map[r["roster_id"]] == ta)
@@ -1394,34 +1394,35 @@ with tab_trades:
         player_options_a = {}
         for p in p_a:
             p_obj = evaluate_player(p, all_players.get(p, {}))
-            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
             player_options_a[label] = (p, p_obj["value"], p_obj)
 
-        sel_players_a = st.multiselect("Search players sent by " + ta, list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...")
+        sel_players_a = st.multiselect("Players A", list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
 
         pick_options_a = {}
         for pk in my_picks_a:
-            label = f"{pk['desc']} • {pk['value']:,} pts"
+            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
             pick_options_a[label] = (pk, pk["value"])
 
-        sel_picks_a = st.multiselect("Search draft picks sent by " + ta, list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...")
+        sel_picks_a = st.multiselect("Picks A", list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
 
         val_a = sum(player_options_a[item][1] for item in sel_players_a) + sum(pick_options_a[item][1] for item in sel_picks_a)
 
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
-            <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">TOTAL OUTGOING VALUE</span>
-            <span style="font-size: 17px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
+            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL OUTGOING VALUE</span>
+            <span style="font-size: 16px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
+        </div>
         </div>
         """, unsafe_allow_html=True)
 
     # --- FRANCHISE B ---
     with c_pod_b:
         st.markdown("""
-        <div style="border-top: 3px solid #c084fc; padding-top: 6px; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px;">FRANCHISE B (PARTNER SIDE)</span>
-        </div>
+        <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #c084fc; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">FRANCHISE B (PARTNER SIDE)</div>
         """, unsafe_allow_html=True)
+        
         tb = st.selectbox("Select Franchise B", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
         
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
@@ -1431,29 +1432,30 @@ with tab_trades:
         player_options_b = {}
         for p in p_b:
             p_obj = evaluate_player(p, all_players.get(p, {}))
-            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
             player_options_b[label] = (p, p_obj["value"], p_obj)
 
-        sel_players_b = st.multiselect("Search players sent by " + tb, list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...")
+        sel_players_b = st.multiselect("Players B", list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
 
         pick_options_b = {}
         for pk in my_picks_b:
-            label = f"{pk['desc']} • {pk['value']:,} pts"
+            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
             pick_options_b[label] = (pk, pk["value"])
 
-        sel_picks_b = st.multiselect("Search draft picks sent by " + tb, list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...")
+        sel_picks_b = st.multiselect("Picks B", list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
 
         val_b = sum(player_options_b[item][1] for item in sel_players_b) + sum(pick_options_b[item][1] for item in sel_picks_b)
 
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
-            <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">TOTAL INCOMING VALUE</span>
-            <span style="font-size: 17px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
+            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL INCOMING VALUE</span>
+            <span style="font-size: 16px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
+        </div>
         </div>
         """, unsafe_allow_html=True)
 
     # Equity Bar Meter
-    st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
     total_trade_volume = max(val_a + val_b, 1)
     pct_a = int((val_a / total_trade_volume) * 100)
     pct_b = 100 - pct_a
