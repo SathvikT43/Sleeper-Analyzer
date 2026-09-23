@@ -132,6 +132,31 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
+    /* Positional Ranks Reference UI */
+    .pos-rank-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #10141d;
+        border: 1px solid #1a2233;
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin-bottom: 6px;
+    }
+    .pos-rank-pill {
+        display: inline-block;
+        width: 48px;
+        text-align: center;
+        padding: 3px 0;
+        font-size: 12px;
+        font-weight: 800;
+        border-radius: 6px;
+    }
+    .rank-top { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
+    .rank-mid { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+    .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
+
+    /* Interactive Dropdown Player Card */
     details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
@@ -261,7 +286,7 @@ for r in rosters:
         player_owner_map[pid] = owner_name
         all_rostered_players.add(pid)
 
-# ==================== ACCURATE 1QB DYNASTY VALUATION ENGINE ====================
+# ==================== TRUE 1QB UNIFIED DYNASTY VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -332,14 +357,12 @@ def evaluate_player(pid, p_info):
 
     stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut)"
 
-    # 1. EXPANDED BASE TALENT CALCULATION
-    # Creates distinct value tiers so true generational NFL producers separate from prospects
     if search_rank and search_rank > 0:
         if search_rank <= 5:        # Bijan Robinson, Jahmyr Gibbs, Ja'Marr Chase, CeeDee Lamb
             talent_score = 1150 - (search_rank * 12)
         elif search_rank <= 15:     # Justin Jefferson, Amon-Ra, Brock Bowers, Breece Hall
             talent_score = 1040 - ((search_rank - 5) * 10)
-        elif search_rank <= 35:     # Top young starters & high-end flex
+        elif search_rank <= 35:     # Top young starters
             talent_score = 900 - ((search_rank - 15) * 8)
         elif search_rank <= 80:     # Solid starters
             talent_score = 720 - ((search_rank - 35) * 4)
@@ -357,29 +380,26 @@ def evaluate_player(pid, p_info):
         else:
             talent_score = 50
 
-    # 2. POSITION MULTIPLIERS SPECIFIC TO 1QB 8-TEAM DYNASTY:
     if pos == "RB":
-        pos_multiplier = 1.38   # Bellcows are the most scarce currency in 8-team 1QB
+        pos_multiplier = 1.38
     elif pos == "WR":
-        pos_multiplier = 1.32   # Elite alpha wideouts
+        pos_multiplier = 1.32
     elif pos == "TE":
-        pos_multiplier = 1.25   # 2TE + 0.25 TEP boost
+        pos_multiplier = 1.25
     elif pos == "QB":
         if search_rank and search_rank <= 20:
-            pos_multiplier = 0.56  # Elite QBs (Josh Allen, Lamar)
+            pos_multiplier = 0.56
         elif search_rank and search_rank <= 60:
-            pos_multiplier = 0.38  # Mid QBs
+            pos_multiplier = 0.38
         elif depth_order and depth_order >= 2:
-            pos_multiplier = 0.08  # Backup QBs have near 0 trade value
+            pos_multiplier = 0.08
         else:
-            pos_multiplier = 0.24  # Streamer starters
+            pos_multiplier = 0.24
     elif pos in ["DL", "DE"]:
         pos_multiplier = 0.60
     else:
         pos_multiplier = 0.40
 
-    # 3. AGE CURVES (Fixed: Ages 22–24 for RBs receive equal apex treatment)
-    # Proven superstars like Bijan & Gibbs (24yo) do not get penalized vs 22/23yo rookies!
     if pos == "RB":
         if age <= 24:
             stage, badge, age_mult = "Rising", "badge-rising", 1.25
@@ -505,8 +525,10 @@ for tp in traded_picks:
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
 
-# ==================== LEAGUE-WIDE AGGREGATION & LUCK STATS ====================
+# ==================== LEAGUE-WIDE AGGREGATION & POSITIONAL RANKINGS ====================
 league_stats = []
+team_positional_values = {}
+
 for r in rosters:
     rid = r["roster_id"]
     tname = roster_owner_map.get(rid, f"Team {rid}")
@@ -518,6 +540,19 @@ for r in rosters:
     total_dynasty_val = player_val + pick_val
     t_age = sum(x["age"] for x in evals) / max(len(evals), 1)
     
+    # Positional Breakdown
+    qb_val = sum(x["value"] for x in evals if x["pos"] == "QB")
+    rb_val = sum(x["value"] for x in evals if x["pos"] == "RB")
+    wr_val = sum(x["value"] for x in evals if x["pos"] == "WR")
+    te_val = sum(x["value"] for x in evals if x["pos"] == "TE")
+    dl_val = sum(x["value"] for x in evals if x["pos"] in ["DL", "DE", "DT"])
+    idp_val = sum(x["value"] for x in evals if x["pos"] in ["LB", "CB", "S", "DB"])
+
+    team_positional_values[rid] = {
+        "QB": qb_val, "RB": rb_val, "WR": wr_val, "TE": te_val, 
+        "DL": dl_val, "IDP": idp_val, "Picks": pick_val, "Overall": total_dynasty_val
+    }
+
     fpts = r.get("settings", {}).get("fpts", 0) + (r.get("settings", {}).get("fpts_decimal", 0) / 100)
     ppts = r.get("settings", {}).get("ppts", 0) or fpts
     eff_pct = (fpts / ppts * 100) if ppts > 0 else 0.0
@@ -578,6 +613,9 @@ df_league["rank_val"] = df_league["total_value"].rank(ascending=False, method="m
 df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").astype(int)
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
 
+# League Standings Seed (Wins then Points For)
+df_league["seed"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
+
 mean_pf = df_league["points_for"].mean()
 mean_pa = df_league["points_against"].mean()
 df_league["luck_score"] = ((df_league["points_for"] - mean_pf) - (df_league["points_against"] - mean_pa)) / 50.0
@@ -586,7 +624,13 @@ df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"]
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
-# ==================== POOL OF PLAYERS (DIRECT - NO STALE CACHE) ====================
+# Position room ranks across all 8 teams
+pos_ranks = {}
+for p_cat in ["Overall", "QB", "RB", "WR", "TE", "DL", "IDP", "Picks"]:
+    sorted_rids = sorted(team_positional_values.keys(), key=lambda x: team_positional_values[x][p_cat], reverse=True)
+    pos_ranks[p_cat] = {rid: idx + 1 for idx, rid in enumerate(sorted_rids)}
+
+# ==================== POOL OF PLAYERS (NO STALE CACHE) ====================
 pool = []
 for pid in all_rostered_players:
     p_info = all_players.get(pid, {})
@@ -601,6 +645,14 @@ for pid, p_info in all_players.items():
             pool.append(evaluate_player(pid, p_info))
 
 df_all_ranked = pd.DataFrame(pool)
+
+# Helper function for ordinal formatting (1st, 2nd, 3rd, 4th)
+def get_ordinal(n):
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
 
 # ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
@@ -944,10 +996,10 @@ with tab_rankings:
     with fa_idp_tab:
         render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False))
 
-# ==================== TAB 3: DEEP DIVE (SPLIT-SCREEN WITH CHEVRON DROPDOWN) ====================
+# ==================== TAB 3: DEEP DIVE (WITH POSITIONAL RANKS REFERENCE UI) ====================
 with tab_deepdive:
     st.markdown(f"### 🔍 Deep Dive: {selected_team_name}")
-    st.caption("Granular lineup inspection with live 2026 NFL stats, valuation differentials, and window-maximizing intelligence.")
+    st.caption("Positional power matrix, real-time NFL performance stats, and championship window synchronizer.")
 
     # Top Diagnostics Row
     luck_val = my_row["luck_score"]
@@ -979,6 +1031,35 @@ with tab_deepdive:
         <div style="font-size: 11px; color: #cbd5e1;">Value: {my_row['pick_value']:,} pts across 2027–2029</div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Positional Rankings Matrix (Matching User's Reference Layout)
+    st.markdown('<div class="section-header">📊 Franchise Positional Rank Matrix (Out of 8 Teams)</div>', unsafe_allow_html=True)
+    
+    def render_pos_rank_item(label, p_key):
+        rk = pos_ranks[p_key].get(selected_rid, 4)
+        pill_class = "rank-top" if rk <= 2 else ("rank-mid" if rk <= 5 else "rank-low")
+        val_pts = team_positional_values[selected_rid][p_key]
+        return f"""
+        <div class="pos-rank-row">
+            <span class="pos-rank-pill {pill_class}">{get_ordinal(rk)}</span>
+            <span style="font-size: 13px; font-weight: 700; color: #f1f5f9;">{label}</span>
+            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">{val_pts:,} pts</span>
+        </div>
+        """
+
+    pr_c1, pr_c2 = st.columns(2)
+    with pr_c1:
+        st.markdown(render_pos_rank_item("Overall Dynasty Power", "Overall"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Quarterbacks (QB)", "QB"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Running Backs (RB)", "RB"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Wide Receivers (WR)", "WR"), unsafe_allow_html=True)
+    with pr_c2:
+        st.markdown(render_pos_rank_item("Tight Ends (TE)", "TE"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Defensive Line (DL)", "DL"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Secondary & LBs (IDP)", "IDP"), unsafe_allow_html=True)
+        st.markdown(render_pos_rank_item("Draft Capital (2027-2029)", "Picks"), unsafe_allow_html=True)
+
+    st.markdown("---")
 
     col_dd_roster, col_dd_insights = st.columns([1.2, 0.8], gap="medium")
 
@@ -1137,51 +1218,247 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL (BRACKET & DRAFT RACE) ====================
 with tab_playoffs:
-    st.subheader("Playoffs (Top 6) & Toilet Bowl (Seeds 7 & 8)")
-    st.dataframe(
-        df_league[["team_name", "wins", "losses", "points_for", "max_pf", "odds_2026"]].rename(columns={
-            "team_name": "Team", "wins": "W", "losses": "L",
-            "points_for": "Points For", "max_pf": "Max PF", "odds_2026": "2026 Title Odds %"
-        }).sort_values(by=["W", "Points For"], ascending=[False, False]).style.format({
-            "Points For": "{:.1f}", "Max PF": "{:.1f}", "2026 Title Odds %": "{:.1f}%"
-        }),
-        use_container_width=True
-    )
+    st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Standings")
+    st.caption("Top 6 seeds advance to the championship playoffs. Seeds 7 & 8 battle for the #1 overall draft pick.")
 
-# ==================== TAB 5: TRADES & CALCULATOR ====================
+    c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
+
+    # Sort standings by Seed (Wins -> PF)
+    standings_df = df_league.sort_values(by="seed").reset_index(drop=True)
+
+    with c_playoff:
+        st.markdown('<div class="section-header">🥇 Championship Playoff Field (Top 6)</div>', unsafe_allow_html=True)
+        for idx, row in standings_df.iloc[:6].iterrows():
+            seed_num = row['seed']
+            bye_tag = '<span class="badge badge-rising">FIRST ROUND BYE</span>' if seed_num <= 2 else '<span class="badge badge-hold">QUARTERFINALS</span>'
+            is_me = row['team_name'] == selected_team_name
+            highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #1c2333; background: #11151f;"
+            
+            st.markdown(f"""
+            <div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 14px; font-weight: 800; color: #38bdf8; margin-right: 6px;">#{seed_num}</span>
+                        <strong style="font-size: 14px; color: #f1f5f9;">{row['team_name']}</strong> {bye_tag}
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                            Record: <strong>{row['wins']}W - {row['losses']}L</strong> • Total PF: <strong>{row['points_for']:.1f}</strong> • Max PF: <strong>{row['max_pf']:.1f}</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 16px; font-weight: 800; color: #fbbf24;">{row['odds_2026']}%</div>
+                        <div style="font-size: 10px; color: #64748b;">Title Odds</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with c_toilet:
+        st.markdown('<div class="section-header">🚽 The Toilet Bowl (Draft Pick 1.01 Race)</div>', unsafe_allow_html=True)
+        toilet_df = standings_df.iloc[6:].copy()
+        
+        # In this league, lowest Max PF gets 1.01!
+        toilet_sorted = toilet_df.sort_values(by="max_pf", ascending=True).reset_index(drop=True)
+        pick_101_team = toilet_sorted.iloc[0]
+        pick_102_team = toilet_sorted.iloc[1]
+
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 4px solid #facc15; margin-bottom: 12px;">
+            <div style="color: #facc15; font-size: 12px; font-weight: 700;">🚽 TOILET BOWL DRAFT PROJECTION</div>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                Seeds 7 & 8 battle for draft positioning. By league rule, <strong>lower Max PF gets the #1 pick</strong>:
+            </div>
+            <div style="margin-top: 10px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="badge badge-rising">PROJ PICK 1.01</span>
+                        <strong style="color: #f8fafc; font-size: 13px;">{pick_101_team['team_name']}</strong>
+                    </div>
+                    <span style="font-size: 13px; font-weight: 800; color: #4ade80;">{pick_101_team['max_pf']:.1f} Max PF</span>
+                </div>
+            </div>
+            <div style="margin-top: 6px; padding: 8px 12px; background: #0a0d14; border-radius: 8px; border: 1px solid #1a2233;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="badge badge-hold">PROJ PICK 1.02</span>
+                        <strong style="color: #f8fafc; font-size: 13px;">{pick_102_team['team_name']}</strong>
+                    </div>
+                    <span style="font-size: 13px; font-weight: 800; color: #94a3b8;">{pick_102_team['max_pf']:.1f} Max PF</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="section-header">🎯 Full Projected 2027 Round 1 Draft Board</div>', unsafe_allow_html=True)
+        # All 8 draft slots by Max PF
+        draft_board = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
+        for idx, r in enumerate(draft_board):
+            t_owner = roster_owner_map.get(r['roster_id'], f"Team {r['roster_id']}")
+            m_pf = (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0))
+            is_me = t_owner == selected_team_name
+            highlight_border = "border: 1px solid #38bdf8; background: #131a27;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
+
+            st.markdown(f"""
+            <div class="odds-row" style="{highlight_border}; padding: 6px 12px;">
+                <div style="font-size: 12px; font-weight: 700; color: {'#38bdf8' if is_me else '#f8fafc'};">
+                    <span style="color: #64748b; margin-right: 8px;">Pick 1.0{idx + 1}</span> {t_owner}
+                </div>
+                <div style="font-size: 12px; font-weight: 700; color: #94a3b8;">{m_pf:.1f} Max PF</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER ====================
 with tab_trades:
-    st.subheader("Dynasty Trade Calculator (Incorporates 2027–2029 Picks)")
-    ca, cb = st.columns(2)
+    st.markdown("### 📜 Dynasty Trade Analyzer & Positional Impact Simulator")
+    st.caption("Construct trades with players and 2027–2029 draft picks, then analyze the trade grade and positional rank shifts.")
+
+    ca, cb = st.columns(2, gap="medium")
     with ca:
-        ta = st.selectbox("Team A", team_names, index=0, key="t_a")
+        ta = st.selectbox("Franchise A (Your Team)", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a")
         r_a = next(r for r in rosters if roster_owner_map[r["roster_id"]] == ta)
         p_a = r_a.get("players", []) or []
-        opts_a = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')})": p for p in p_a}
-        sel_pa = st.multiselect(f"Players from {ta}", list(opts_a.keys()), key="spa")
+        opts_a = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')}) - {evaluate_player(p, all_players.get(p, {}))['value']:,} pts": p for p in p_a}
+        sel_pa = st.multiselect(f"Players sent by {ta}", list(opts_a.keys()), key="spa")
         
         my_picks_a = team_picks.get(r_a["roster_id"], [])
-        opts_pka = {p["desc"]: p["value"] for p in my_picks_a}
-        sel_pka = st.multiselect(f"Draft Picks from {ta}", list(opts_pka.keys()), key="spka")
+        opts_pka = {f"{p['desc']} ({p['value']:,} pts)": p for p in my_picks_a}
+        sel_pka = st.multiselect(f"Draft Picks sent by {ta}", list(opts_pka.keys()), key="spka")
 
     with cb:
-        tb = st.selectbox("Team B", team_names, index=1 if len(team_names) > 1 else 0, key="t_b")
+        default_b_idx = 1 if team_names.index(ta) != 1 else 0
+        tb = st.selectbox("Franchise B (Trade Partner)", [t for t in team_names if t != ta], index=0, key="t_b")
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
         p_b = r_b.get("players", []) or []
-        opts_b = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')})": p for p in p_b}
-        sel_pb = st.multiselect(f"Players from {tb}", list(opts_b.keys()), key="spb")
+        opts_b = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')}) - {evaluate_player(p, all_players.get(p, {}))['value']:,} pts": p for p in p_b}
+        sel_pb = st.multiselect(f"Players sent by {tb}", list(opts_b.keys()), key="spb")
         
         my_picks_b = team_picks.get(r_b["roster_id"], [])
-        opts_pkb = {p["desc"]: p["value"] for p in my_picks_b}
-        sel_pkb = st.multiselect(f"Draft Picks from {tb}", list(opts_pkb.keys()), key="spkb")
+        opts_pkb = {f"{p['desc']} ({p['value']:,} pts)": p for p in my_picks_b}
+        sel_pkb = st.multiselect(f"Draft Picks sent by {tb}", list(opts_pkb.keys()), key="spkb")
 
-    val_a = sum(evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))["value"] for p in sel_pa) + sum(opts_pka[p] for p in sel_pka)
-    val_b = sum(evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))["value"] for p in sel_pb) + sum(opts_pkb[p] for p in sel_pkb)
+    # Calculate Value Totals
+    val_a = sum(evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))["value"] for p in sel_pa) + sum(opts_pka[p]["value"] for p in sel_pka)
+    val_b = sum(evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))["value"] for p in sel_pb) + sum(opts_pkb[p]["value"] for p in sel_pkb)
 
     st.markdown("---")
     res1, res2, res3 = st.columns(3)
     res1.metric(f"{ta} Gives", f"{val_a:,} pts")
     res2.metric(f"{tb} Gives", f"{val_b:,} pts")
-    delta = val_a - val_b
-    res3.metric("Trade Edge", f"{abs(delta):,} pts", f"{'Favors ' + ta if delta < 0 else 'Favors ' + tb}")
+    delta = val_b - val_a  # positive means Team A gains value
+    res3.metric("Net Value For " + ta, f"{abs(delta):,} pts", f"{'Surplus (+)' if delta >= 0 else 'Deficit (-)'}")
+
+    # Analyze Trade Button
+    st.markdown("")
+    analyze_btn = st.button("⚡ Analyze Trade Impact & Positional Shifts", use_container_width=True, type="primary")
+
+    if analyze_btn:
+        if val_a == 0 and val_b == 0:
+            st.warning("Please select at least one player or draft pick on each side to analyze.")
+        else:
+            # Determine Grade (A+ to F)
+            # Evaluate value ratio
+            ratio = (val_b / max(val_a, 1))
+            if ratio >= 1.25:
+                grade, grade_color = "A+", "#4ade80"
+                verdict = "Smash Accept / Massive Value Win"
+            elif ratio >= 1.08:
+                grade, grade_color = "A", "#4ade80"
+                verdict = "Strong Value Win for Your Franchise"
+            elif ratio >= 0.94:
+                grade, grade_color = "B+", "#38bdf8"
+                verdict = "Fair & Balanced Trade"
+            elif ratio >= 0.80:
+                grade, grade_color = "C", "#fbbf24"
+                verdict = "Slight Loss in Value / Overpay"
+            elif ratio >= 0.65:
+                grade, grade_color = "D", "#f97316"
+                verdict = "Significant Value Loss"
+            else:
+                grade, grade_color = "F", "#f43f5e"
+                verdict = "Horrendous Trade / Do Not Accept"
+
+            st.markdown(f"""
+            <div class="metric-card" style="border-left: 4px solid {grade_color}; margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">TRADE GRADE FOR {ta.upper()}</div>
+                        <div style="font-size: 32px; font-weight: 800; color: {grade_color}; margin: 2px 0;">{grade}</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #f1f5f9;">{verdict}</div>
+                    </div>
+                    <div style="text-align: right; max-width: 450px;">
+                        <div style="font-size: 12px; color: #cbd5e1;">
+                            {'This deal capitalizes on your competitive window by acquiring premium assets.' if delta >= 0 else 'You are giving up more overall dynasty value than you are receiving back.'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Positional Rank Shift Simulation
+            st.markdown("#### 🔄 Projected Positional Rank Shift for " + ta)
+            
+            # Compute new simulated positional values for Team A
+            sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
+
+            # Subtract outgoing players
+            for p in sel_pa:
+                p_obj = evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))
+                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                if p_cat in sim_pos_val:
+                    sim_pos_val[p_cat] -= p_obj["value"]
+                sim_pos_val["Overall"] -= p_obj["value"]
+
+            # Subtract outgoing picks
+            for pk in sel_pka:
+                sim_pos_val["Picks"] -= opts_pka[pk]["value"]
+                sim_pos_val["Overall"] -= opts_pka[pk]["value"]
+
+            # Add incoming players
+            for p in sel_pb:
+                p_obj = evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))
+                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                if p_cat in sim_pos_val:
+                    sim_pos_val[p_cat] += p_obj["value"]
+                sim_pos_val["Overall"] += p_obj["value"]
+
+            # Add incoming picks
+            for pk in sel_pkb:
+                sim_pos_val["Picks"] += opts_pkb[pk]["value"]
+                sim_pos_val["Overall"] += opts_pkb[pk]["value"]
+
+            shift_cols = st.columns(4)
+            checked_cats = ["Overall", "QB", "RB", "WR", "TE", "DL", "IDP", "Picks"]
+            
+            for idx, c_name in enumerate(checked_cats):
+                col_target = shift_cols[idx % 4]
+                curr_rank = pos_ranks[c_name][r_a["roster_id"]]
+                
+                # Compute simulated rank across league
+                all_others = [team_positional_values[rid][c_name] for rid in team_positional_values if rid != r_a["roster_id"]]
+                sim_rank = sum(1 for val in all_others if val > sim_pos_val[c_name]) + 1
+
+                rank_diff = curr_rank - sim_rank  # positive means improved rank
+                if rank_diff > 0:
+                    shift_str = f"▲ Improved by +{rank_diff}"
+                    shift_color = "#4ade80"
+                elif rank_diff < 0:
+                    shift_str = f"▼ Dropped by {rank_diff}"
+                    shift_color = "#f43f5e"
+                else:
+                    shift_str = "— Unchanged"
+                    shift_color = "#94a3b8"
+
+                col_target.markdown(f"""
+                <div class="odds-row" style="padding: 10px; margin-bottom: 8px;">
+                    <div>
+                        <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">{c_name} ROOM</div>
+                        <div style="font-size: 14px; font-weight: 800; color: #f1f5f9;">
+                            #{curr_rank} ➔ <span style="color: #38bdf8;">#{sim_rank}</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; font-weight: 700; color: {shift_color}; text-align: right;">
+                        {shift_str}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
