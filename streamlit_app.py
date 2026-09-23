@@ -408,7 +408,8 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id"] == rid:
+                # FIXED SYNTAX ERROR HERE (closed parenthesis instead of bracket)
+                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
                     traded = True
                     break
             if not traded:
