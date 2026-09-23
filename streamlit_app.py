@@ -198,7 +198,6 @@ def evaluate_player(pid, p_info):
     }
     base = base_scores.get(pos, 250)
 
-    # Position-specific age longevity curves
     if pos == "QB":
         if age <= 24:
             stage, badge, mult = "Rising", "badge-rising", 1.45
@@ -297,10 +296,14 @@ for rid in team_picks:
 
 # ==================== LEAGUE-WIDE AGGREGATION & PROJECTIONS ====================
 league_stats = []
+all_rostered_players = set()
+
 for r in rosters:
     rid = r["roster_id"]
     tname = roster_owner_map.get(rid, f"Team {rid}")
     p_ids = r.get("players", []) or []
+    all_rostered_players.update(p_ids)
+
     evals = [evaluate_player(p, all_players.get(p, {})) for p in p_ids]
     
     player_val = sum(x["value"] for x in evals)
@@ -314,18 +317,15 @@ for r in rosters:
     wins = r.get("settings", {}).get("wins", 0)
     losses = r.get("settings", {}).get("losses", 0)
 
-    # 2026 Title Score: heavily favors current week points & win record
     win_pct = wins / max(wins + losses, 1)
     title_score_2026 = (win_pct * 50.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.0008)
     if wins == 0 and current_week >= 2:
         title_score_2026 *= 0.25
 
-    # 2027 Title Score: youth aging into prime + 2027 draft picks
     picks_2027_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] == 2027)
     age_factor_2027 = max(0.6, 1.4 - (max(0, t_age - 24.5) * 0.15))
     title_score_2027 = (player_val * age_factor_2027 * 0.01) + (picks_2027_val * 0.006)
 
-    # 2028 Title Score: compound rebuilders & draft hoarders over older teams
     all_future_picks = sum(p["value"] for p in team_picks.get(rid, []))
     age_factor_2028 = max(0.4, 1.6 - (max(0, t_age - 24.0) * 0.25))
     title_score_2028 = (player_val * age_factor_2028 * 0.01) + (all_future_picks * 0.008)
@@ -355,6 +355,15 @@ df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="mi
 df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
+
+# ==================== IDENTIFY BEST AVAILABLE FREE AGENTS ====================
+free_agents_pool = []
+for pid, p in all_players.items():
+    if pid not in all_rostered_players and p.get("team") and p.get("status") != "Inactive":
+        ev = evaluate_player(pid, p)
+        free_agents_pool.append(ev)
+
+fa_df = pd.DataFrame(free_agents_pool)
 
 # ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
@@ -480,7 +489,7 @@ with tab_overview:
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        # 1. CLEAN COMBINED PRIME WINDOW & 3-YEAR ODDS CARD
+        # 1. Combined Prime Window & 3-Year Odds
         if my_row["avg_age"] < 24.8:
             prime_window = "2027 – 2030 (Ascending Young Core)"
             strategy_text = "Stockpile draft capital. Your young roster will peak strongly in 1-2 years."
@@ -558,7 +567,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 4. ALL DRAFT PICKS (AT THE VERY BOTTOM)
+        # 4. Draft Capital
         my_picks = team_picks.get(selected_rid, [])
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #38bdf8;">
@@ -579,6 +588,44 @@ with tab_overview:
                             • <strong>{p['desc']}</strong> <span style="color: #38bdf8; font-weight: 600;">({p['value']:,} pts)</span>
                         </div>
                         """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # 5. BEST AVAILABLE FREE AGENTS (WAIVER WIRE)
+        st.markdown("""
+        <div class="insight-card" style="border-left: 3px solid #a855f7;">
+            <div style="color: #c084fc; font-size: 12px; font-weight: 700;">💎 TOP AVAILABLE FREE AGENTS (WAIVER WIRE)</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Top 5 Unowned Assets by Dynasty Value</div>
+        """, unsafe_allow_html=True)
+
+        fa_pos_tab = st.selectbox("Position Pool", ["QB", "RB", "WR", "TE", "DL", "IDP (LB/DB)"], label_visibility="collapsed")
+
+        if not fa_df.empty:
+            if fa_pos_tab == "DL":
+                sub_fa = fa_df[fa_df["pos"].isin(["DL", "DE", "DT"])].sort_values(by="value", ascending=False).head(5)
+            elif "IDP" in fa_pos_tab:
+                sub_fa = fa_df[fa_df["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False).head(5)
+            else:
+                sub_fa = fa_df[fa_df["pos"] == fa_pos_tab].sort_values(by="value", ascending=False).head(5)
+
+            for _, fa in sub_fa.iterrows():
+                rookie_tag = '<span class="badge badge-rookie">ROOKIE</span>' if fa["rookie"] else ''
+                fa_html = (
+                    f'<div class="odds-row">'
+                    f'  <div style="display: flex; align-items: center; min-width: 0;">'
+                    f'      <img src="{fa["img"]}" class="player-avatar" style="width: 28px; height: 28px; margin-right: 8px;" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                    f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                    f'          <div style="font-size: 12px; font-weight: 600; color: #f8fafc;">{fa["name"]} '
+                    f'              <span style="font-size: 10px; color: #94a3b8;">{fa["pos"]} - {fa["team"]} • {fa["age"]}yo</span>'
+                    f'          </div>'
+                    f'          <div><span class="badge {fa["badge"]}">{fa["stage"].upper()}</span>{rookie_tag}</div>'
+                    f'      </div>'
+                    f'  </div>'
+                    f'  <div style="font-size: 13px; font-weight: 800; color: #c084fc; margin-left: 8px;">{fa["value"]:,}</div>'
+                    f'</div>'
+                )
+                st.markdown(fa_html, unsafe_allow_html=True)
+        else:
+            st.caption("No free agents found matching criteria.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 
