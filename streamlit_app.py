@@ -9,10 +9,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS / IOS LIQUID GLASS & CLEAN CONTAINER CSS ====================
+# ==================== IOS PWA & MACOS LIQUID GLASS CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    /* iOS PWA Standalone Styling */
+    @media (display-mode: standalone) {
+        body { background-color: #04060b; }
+    }
 
     .stApp {
         background-color: #04060b;
@@ -23,6 +28,10 @@ st.markdown("""
         color: #f1f5f9;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
     }
+    
+    /* Hide Streamlit Default Elements & Sidebar Toggle */
+    section[data-testid="stSidebar"] { display: none !important; }
+    button[kind="header"] { display: none !important; }
     
     div[data-baseweb="select"] input,
     .stSelectbox input,
@@ -36,20 +45,23 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Completely Remove Main Content Wrapper Box/Border */
-    section.main > div {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-    
-    .block-container {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
+    /* Executive Glass Navigation Bar */
+    .glass-header {
+        background: rgba(255, 255, 255, 0.025);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+        padding: 16px 24px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
     }
 
-    /* Floating Frosted Glass Tab Bar (Segmented Control) */
+    /* Floating Frosted Glass Tab Bar */
     div.stTabs {
         background: transparent !important;
         border: none !important;
@@ -88,14 +100,6 @@ st.markdown("""
         background-color: rgba(255, 255, 255, 0.04);
     }
 
-    div.stTabs [data-baseweb="tab"]:focus,
-    div.stTabs [data-baseweb="tab"]:active,
-    div.stTabs [aria-selected="true"]:focus {
-        outline: none !important;
-        box-shadow: none !important;
-    }
-
-    /* Subtly Lit Active Tab State */
     div.stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(129, 140, 248, 0.18) 100%) !important;
         color: #38bdf8 !important;
@@ -304,11 +308,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# iOS PWA Meta Tags Injection
+st.markdown("""
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dynasty Hub">
+""", unsafe_allow_html=True)
+
 BASE_URL = "https://api.sleeper.app/v1"
 PERMANENT_LEAGUE_ID = "1312141303219249152"
-
-st.sidebar.title("⚡ League Controls")
-league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
+league_id = PERMANENT_LEAGUE_ID
 
 @st.cache_data(ttl=86400)
 def get_all_players():
@@ -773,20 +782,20 @@ def get_ordinal(n):
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
     return f"{n}{suffix}"
 
-# ==================== HEADER & LIQUID GLASS NAVIGATION BAR ====================
-h1, h2 = st.columns([3, 1])
-with h1:
-    st.markdown(f"""
-    <div style="padding: 10px 0;">
-        <h1 style="font-size: 28px; font-weight: 800; color: #f8fafc; margin: 0; letter-spacing: -0.5px;">⚡ {league_info.get('name', 'Dynasty Hub')}</h1>
-        <p style="font-size: 13px; color: #94a3b8; margin: 4px 0 0 0;">8 Teams • 1QB • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks</p>
-    </div>
-    """, unsafe_allow_html=True)
-
+# ==================== EXECUTIVE LIGLASS HEADER (NO SIDEBAR) ====================
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
-with h2:
-    st.markdown('<div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.5px;">ACTIVE FRANCHISE</div>', unsafe_allow_html=True)
-    selected_team_name = st.selectbox("Select Your Franchise", team_names, index=0, label_visibility="collapsed")
+
+st.markdown(f"""
+<div class="glass-header">
+    <div>
+        <h1 style="font-size: 24px; font-weight: 800; color: #f8fafc; margin: 0; letter-spacing: -0.5px;">⚡ {league_info.get('name', 'Dynasty Hub')}</h1>
+        <p style="font-size: 12px; color: #94a3b8; margin: 3px 0 0 0;">8 Teams • 1QB • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Clean Franchise Selector positioned seamlessly
+selected_team_name = st.selectbox("Active Franchise", team_names, index=0)
 
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
 selected_rid = selected_roster["roster_id"]
@@ -827,8 +836,6 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
-    total_games = my_row['wins'] + my_row['losses']
-    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
