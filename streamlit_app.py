@@ -714,6 +714,8 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
@@ -1147,7 +1149,7 @@ with tab_deepdive:
     with col_dd_insights:
         st.markdown('<div class="section-header">🧠 Window-Maximizing Intelligence</div>', unsafe_allow_html=True)
 
-        my_all_player_objs = [player_evals[p] for p in pids if p in player_evals]
+        my_all_player_objs = [evaluate_player(p, all_players.get(p, {})) for p in pids]
         my_avg_age = my_row["avg_age"]
         is_rebuilding = "Rebuilding" in my_row["posture"] or my_avg_age < 25.2 or my_row["wins"] <= 1
         is_competing = "Competing" in my_row["posture"] and my_row["wins"] >= 2
@@ -1182,7 +1184,7 @@ with tab_deepdive:
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+            <div class="insight-card" style="border-left: 4px solid #f43f5e;">
                 <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
                 <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                     These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
@@ -1194,7 +1196,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
         elif is_competing and win_now_veterans:
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
+            <div class="insight-card" style="border-left: 4px solid #fbbf24;">
                 <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
                 <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                     Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
@@ -1203,7 +1205,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #4ade80;">
+        <div class="insight-card" style="border-left: 4px solid #4ade80;">
             <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
             <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                 Players whose prime aligns with your team's championship runway:
@@ -1217,7 +1219,7 @@ with tab_deepdive:
         """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 3px solid #a855f7;">
+        <div class="insight-card" style="border-left: 4px solid #a855f7;">
             <div style="color: #c084fc; font-size: 12px; font-weight: 700;">🔄 TARGETED LEAGUE TRADE BLUEPRINT</div>
             <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                 {'Target contenders who need win-now scoring. Offer them your older pieces for 2027 1st-rounders to maximize your Toilet Bowl draft positioning (lowest Max PF wins pick 1.01).' if is_rebuilding else 'Target rebuilding teams in the league. Offer your 2027/2028 2nd-round picks to buy starting-lineup difference makers.'}
@@ -1371,21 +1373,21 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (INVERTED: YOU GIVE / YOU RECEIVE) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals. Search and select players and draft picks independently to evaluate equity.")
+    st.caption("Construct multi-asset trade proposals. Evaluate what you send versus what you receive.")
 
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
-    # --- FRANCHISE A ---
+    # --- LEFT POD: YOU GIVE (FRANCHISE A SENDING TO B) ---
     with c_pod_a:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #38bdf8; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">FRANCHISE A (YOUR SIDE)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">YOU SEND (OUTGOING ASSETS)</div>
         """, unsafe_allow_html=True)
         
-        ta = st.selectbox("Select Franchise A", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
+        ta = st.selectbox("Select Your Franchise", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
         
         r_a = next(r for r in rosters if roster_owner_map[r["roster_id"]] == ta)
         p_a = r_a.get("players", []) or []
@@ -1397,14 +1399,14 @@ with tab_trades:
             label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
             player_options_a[label] = (p, p_obj["value"], p_obj)
 
-        sel_players_a = st.multiselect("Players A", list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
+        sel_players_a = st.multiselect("Players You Send", list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
 
         pick_options_a = {}
         for pk in my_picks_a:
             label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
             pick_options_a[label] = (pk, pk["value"])
 
-        sel_picks_a = st.multiselect("Picks A", list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
+        sel_picks_a = st.multiselect("Picks You Send", list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
 
         val_a = sum(player_options_a[item][1] for item in sel_players_a) + sum(pick_options_a[item][1] for item in sel_picks_a)
 
@@ -1416,14 +1418,14 @@ with tab_trades:
         </div>
         """, unsafe_allow_html=True)
 
-    # --- FRANCHISE B ---
+    # --- RIGHT POD: YOU RECEIVE (FRANCHISE B SENDING TO A) ---
     with c_pod_b:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #c084fc; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">FRANCHISE B (PARTNER SIDE)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">YOU RECEIVE (INCOMING ASSETS)</div>
         """, unsafe_allow_html=True)
         
-        tb = st.selectbox("Select Franchise B", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
+        tb = st.selectbox("Select Trade Partner", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
         
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
         p_b = r_b.get("players", []) or []
@@ -1435,14 +1437,14 @@ with tab_trades:
             label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
             player_options_b[label] = (p, p_obj["value"], p_obj)
 
-        sel_players_b = st.multiselect("Players B", list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
+        sel_players_b = st.multiselect("Players You Receive", list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
 
         pick_options_b = {}
         for pk in my_picks_b:
             label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
             pick_options_b[label] = (pk, pk["value"])
 
-        sel_picks_b = st.multiselect("Picks B", list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
+        sel_picks_b = st.multiselect("Picks You Receive", list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
 
         val_b = sum(player_options_b[item][1] for item in sel_players_b) + sum(pick_options_b[item][1] for item in sel_picks_b)
 
@@ -1463,14 +1465,14 @@ with tab_trades:
     if val_a > 0 or val_b > 0:
         delta = val_b - val_a
         delta_color = "#4ade80" if delta >= 0 else "#f43f5e"
-        status_label = f"+{delta:,} pts Surplus (Favors {ta})" if delta >= 0 else f"{delta:,} pts Deficit (Favors {tb})"
+        status_label = f"+{delta:,} pts Surplus (You Win)" if delta >= 0 else f"{delta:,} pts Deficit (You Lose)"
 
         st.markdown(f"""
         <div style="background: #11151f; border: 1px solid #1c2438; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
-                <span style="color: #38bdf8;">{ta}: {val_a:,} pts ({pct_a}%)</span>
+                <span style="color: #38bdf8;">You Send: {val_a:,} pts ({pct_a}%)</span>
                 <span style="color: {delta_color}; font-size: 13px;">{status_label}</span>
-                <span style="color: #c084fc;">{tb}: {val_b:,} pts ({pct_b}%)</span>
+                <span style="color: #c084fc;">You Receive: {val_b:,} pts ({pct_b}%)</span>
             </div>
             <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #1a2233;">
                 <div style="width: {pct_a}%; background: #38bdf8;"></div>
