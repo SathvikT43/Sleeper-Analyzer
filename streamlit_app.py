@@ -188,7 +188,6 @@ roster_owner_map = {
     for r in rosters
 }
 
-# Mapping: player_id -> owner team name
 player_owner_map = {}
 all_rostered_players = set()
 for r in rosters:
@@ -198,11 +197,13 @@ for r in rosters:
         player_owner_map[pid] = owner_name
         all_rostered_players.add(pid)
 
-# ==================== UNCAPPED NATURAL VALUATION ENGINE ====================
+# ==================== TRUE TALENT & QUALITY DYNASTY ENGINE ====================
+# Accurately values top tier studs (Josh Allen, CeeDee Lamb, Bijan Robinson, etc.)
+# Incorporates Sleeper search rank + depth chart order + positional premiums
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
-            "pid": str(pid), "value": 150, "stage": "Prime", "badge": "badge-prime",
+            "pid": str(pid), "value": 100, "stage": "Prime", "badge": "badge-prime",
             "action": "HOLD", "act_badge": "badge-hold", "rookie": False,
             "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
             "owner": player_owner_map.get(str(pid), "Free Agent"),
@@ -215,56 +216,107 @@ def evaluate_player(pid, p_info):
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
     owner = player_owner_map.get(str(pid), "Free Agent")
+    depth_order = p_info.get("depth_chart_order")
+    search_rank = p_info.get("search_rank")
 
-    base_scores = {
-        "WR": 560, "RB": 520, "TE": 640, "QB": 480,
-        "DL": 400, "DE": 400, "DT": 340, "LB": 310, "CB": 210, "S": 240, "K": 80
-    }
-    base = base_scores.get(pos, 250)
-
-    if pos == "QB":
-        if age <= 24:
-            stage, badge, mult = "Rising", "badge-rising", 1.45
-        elif age <= 31:
-            stage, badge, mult = "Prime", "badge-prime", 1.25
-        elif age <= 34:
-            stage, badge, mult = "Descending", "badge-descending", 0.95
-        else:
-            stage, badge, mult = "Unc", "badge-unc", 0.65
-    elif pos in ["TE", "DL", "DE"]:
-        if age <= 23:
-            stage, badge, mult = "Rising", "badge-rising", 1.50
-        elif age <= 28:
-            stage, badge, mult = "Prime", "badge-prime", 1.20
-        elif age <= 30:
-            stage, badge, mult = "Descending", "badge-descending", 0.85
-        else:
-            stage, badge, mult = "Unc", "badge-unc", 0.50
-    else:  # RB, WR, DB
-        if age <= 22:
-            stage, badge, mult = "Rising", "badge-rising", 1.60
-        elif age <= 24:
-            stage, badge, mult = "Rising", "badge-rising", 1.40
-        elif 25 <= age <= 27:
-            stage, badge, mult = "Prime", "badge-prime", 1.15
-        elif 28 <= age <= 29:
-            stage, badge, mult = "Descending", "badge-descending", 0.75
-        else:
-            stage, badge, mult = "Unc", "badge-unc", 0.40
-
-    calc_val = int(base * mult)
-
-    if stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
-        action, act_badge = "SELL HIGH", "badge-sell"
-    elif stage == "Rising":
-        action, act_badge = "BUY / STRONG HOLD", "badge-buy"
-    elif stage == "Prime" and pos in ["TE", "DL", "QB"]:
-        action, act_badge = "CORE ASSET", "badge-buy"
+    # 1. BASE TALENT SCORE: Derived from actual NFL status & consensus market ranking
+    # Search rank <= 100 is an elite fantasy superstar (Josh Allen, Jefferson, Chase, etc.)
+    if search_rank and search_rank > 0:
+        if search_rank <= 12:       # Elite tier 1 overall
+            talent_score = 920 - (search_rank * 8)
+        elif search_rank <= 40:     # Top tier starters
+            talent_score = 800 - ((search_rank - 12) * 5)
+        elif search_rank <= 100:    # High end starters
+            talent_score = 660 - ((search_rank - 40) * 3)
+        elif search_rank <= 250:    # Core starters & rotation pieces
+            talent_score = 480 - ((search_rank - 100) * 1.5)
+        elif search_rank <= 500:    # Depth & backups
+            talent_score = 250 - ((search_rank - 250) * 0.5)
+        else:                       # Bench depth / waiver flyers
+            talent_score = max(50, 130 - ((search_rank - 500) * 0.05))
     else:
-        action, act_badge = "HOLD", "badge-hold"
+        # Fallback based on depth chart if search rank is missing
+        if depth_order == 1:
+            talent_score = 420
+        elif depth_order == 2:
+            talent_score = 160
+        else:
+            talent_score = 70
+
+    # 2. POSITION WEIGHTING FOR YOUR SPECIFIC LEAGUE FORMAT:
+    # 8 Teams | 1QB | 2TE (+0.25 TEP) | 4 Flex | Big Play IDP
+    pos_multiplier = 1.0
+    if pos == "TE":
+        # 16 required TE starters across 8 teams + 0.25 TEP boost
+        pos_multiplier = 1.28
+    elif pos == "QB":
+        # Elite QBs (Allen, Mahomes, Lamar) produce massive weekly advantages
+        if search_rank and search_rank <= 30:
+            pos_multiplier = 1.25
+        elif depth_order and depth_order >= 2:
+            # Backup QBs in 1QB have essentially ZERO trade/starting value
+            pos_multiplier = 0.25
+        else:
+            pos_multiplier = 0.90
+    elif pos in ["DL", "DE"]:
+        # Sacks (4 pts) and TFL (3 pts) reward premier edge rushers
+        pos_multiplier = 1.10
+    elif pos in ["CB", "S", "DB"]:
+        pos_multiplier = 0.75
+
+    # 3. AGE CURVES BASED ON LONGEVITY:
+    if pos == "QB":
+        if age <= 25:
+            stage, badge, age_mult = "Rising", "badge-rising", 1.15
+        elif age <= 32:
+            stage, badge, age_mult = "Prime", "badge-prime", 1.05
+        elif age <= 35:
+            stage, badge, age_mult = "Descending", "badge-descending", 0.85
+        else:
+            stage, badge, age_mult = "Unc", "badge-unc", 0.60
+    elif pos in ["RB"]:
+        if age <= 23:
+            stage, badge, age_mult = "Rising", "badge-rising", 1.25
+        elif age <= 26:
+            stage, badge, age_mult = "Prime", "badge-prime", 1.05
+        elif age <= 28:
+            stage, badge, age_mult = "Descending", "badge-descending", 0.70
+        else:
+            stage, badge, age_mult = "Unc", "badge-unc", 0.35
+    elif pos in ["WR", "TE"]:
+        if age <= 24:
+            stage, badge, age_mult = "Rising", "badge-rising", 1.20
+        elif age <= 28:
+            stage, badge, age_mult = "Prime", "badge-prime", 1.05
+        elif age <= 30:
+            stage, badge, age_mult = "Descending", "badge-descending", 0.80
+        else:
+            stage, badge, age_mult = "Unc", "badge-unc", 0.45
+    else:  # IDP
+        if age <= 24:
+            stage, badge, age_mult = "Rising", "badge-rising", 1.15
+        elif age <= 28:
+            stage, badge, age_mult = "Prime", "badge-prime", 1.00
+        else:
+            stage, badge, age_mult = "Descending", "badge-descending", 0.70
+
+    # Final Uncapped Value
+    final_val = int(talent_score * pos_multiplier * age_mult)
+
+    # Dynamic Action Tags
+    if final_val >= 750:
+        action, act_badge = "CORNERSTONE", "badge-buy"
+    elif stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
+        action, act_badge = "SELL HIGH", "badge-sell"
+    elif stage == "Rising" and final_val >= 400:
+        action, act_badge = "BUY / STRONG HOLD", "badge-buy"
+    elif final_val >= 450:
+        action, act_badge = "CORE STARTER", "badge-hold"
+    else:
+        action, act_badge = "HOLD / DEPTH", "badge-hold"
 
     return {
-        "pid": str(pid), "value": calc_val, "stage": stage, "badge": badge,
+        "pid": str(pid), "value": max(final_val, 25), "stage": stage, "badge": badge,
         "action": action, "act_badge": act_badge, "rookie": is_rookie,
         "age": age, "pos": pos, "team": team, "owner": owner,
         "name": p_info.get("full_name") or f"Player {pid}",
@@ -272,7 +324,7 @@ def evaluate_player(pid, p_info):
     }
 
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
-pick_value_base = {1: 700, 2: 340, 3: 150}
+pick_value_base = {1: 750, 2: 360, 3: 160}
 max_pf_sorted = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
 projected_pick_slot = {r["roster_id"]: idx + 1 for idx, r in enumerate(max_pf_sorted)}
 
@@ -293,7 +345,7 @@ for r in rosters:
                     "year": yr, "round": rd, "original_rid": rid,
                     "desc": f"{yr} Rd {rd} (Proj '{yr_short}.0{proj_slot})",
                     "proj_slot": proj_slot,
-                    "value": int(pick_value_base[rd] * (1.30 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
+                    "value": int(pick_value_base[rd] * (1.35 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
                 })
 
 for tp in traded_picks:
@@ -311,13 +363,13 @@ for tp in traded_picks:
             "year": yr, "round": rd, "original_rid": orig_roster,
             "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')} (Proj '{yr_short}.0{proj_slot})",
             "proj_slot": proj_slot,
-            "value": int(pick_value_base.get(rd, 200) * (1.30 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
+            "value": int(pick_value_base.get(rd, 200) * (1.35 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
         })
 
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
 
-# ==================== LEAGUE-WIDE AGGREGATION & 3-YEAR PROJECTIONS ====================
+# ==================== LEAGUE-WIDE AGGREGATION ====================
 league_stats = []
 for r in rosters:
     rid = r["roster_id"]
@@ -375,16 +427,14 @@ df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"]
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
-# ==================== POOL OF ALL PLAYERS (ROSTERED + ACTIVE FA) ====================
+# ==================== POOL OF PLAYERS ====================
 @st.cache_data(ttl=600)
 def generate_rankings_pool(p_dict, r_set):
     pool = []
-    # 1. Add all rostered players
     for pid in r_set:
         p_info = p_dict.get(pid, {})
         pool.append(evaluate_player(pid, p_info))
     
-    # 2. Add relevant active free agents
     for pid, p_info in p_dict.items():
         if pid not in r_set:
             pos = p_info.get("position")
@@ -465,7 +515,6 @@ with tab_overview:
     # Split: Left (Lineup) | Right (Insights)
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
-    # ----- LEFT: LINEUP -----
     with col_roster:
         def render_compact_lineup(title, player_list, slot_label="BN"):
             st.markdown(f'<div class="section-header">{title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
@@ -516,7 +565,6 @@ with tab_overview:
         render_compact_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
         render_compact_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
-    # ----- RIGHT: FRANCHISE INTELLIGENCE -----
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
@@ -580,8 +628,8 @@ with tab_overview:
         """, unsafe_allow_html=True)
 
         # 3. Deduplicated Keepers & Sell Candidates
-        superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]))
-        rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]))
+        superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 750]))
+        rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 500]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
 
         st.markdown(f"""
@@ -624,9 +672,8 @@ with tab_overview:
 # ==================== TAB 2: OVERALL DYNASTY RANKINGS & FREE AGENT HUB ====================
 with tab_rankings:
     st.markdown("### 📈 Overall Dynasty Player Rankings")
-    st.caption("Uncapped dynasty asset valuations across all NFL players, active rosters, and free agency pool.")
+    st.caption("Caliber-weighted dynasty asset valuations across all NFL players, active rosters, and free agency pool.")
 
-    # Control Bar for Filtering & Sorting
     f1, f2, f3, f4 = st.columns([1.5, 1.5, 2, 1.2])
     with f1:
         filter_pos = st.selectbox("Position", ["All Positions", "QB", "RB", "WR", "TE", "DL (Edge/Interior)", "IDP (LB/DB)"])
@@ -637,10 +684,8 @@ with tab_rankings:
     with f4:
         display_limit = st.selectbox("Show Top", [50, 25, 100], index=0)
 
-    # Filter Application
     filtered_df = df_all_ranked.copy()
 
-    # Position Filter
     if filter_pos == "QB":
         filtered_df = filtered_df[filtered_df["pos"] == "QB"]
     elif filter_pos == "RB":
@@ -654,19 +699,14 @@ with tab_rankings:
     elif "IDP" in filter_pos:
         filtered_df = filtered_df[filtered_df["pos"].isin(["LB", "CB", "S", "DB"])]
 
-    # Pool Filter
     if filter_owner == "Rostered Only":
         filtered_df = filtered_df[filtered_df["owner"] != "Free Agent"]
     elif filter_owner == "Free Agents Only":
         filtered_df = filtered_df[filtered_df["owner"] == "Free Agent"]
 
-    # Age Filter
     filtered_df = filtered_df[(filtered_df["age"] >= age_slider[0]) & (filtered_df["age"] <= age_slider[1])]
-
-    # Sort & Limit
     sorted_df = filtered_df.sort_values(by="value", ascending=False).head(display_limit).reset_index(drop=True)
 
-    # Render Overall Rankings List
     if sorted_df.empty:
         st.info("No players found matching your criteria.")
     else:
@@ -674,7 +714,6 @@ with tab_rankings:
             rk_num = rank + 1
             rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
             
-            # Owner display
             if p["owner"] == "Free Agent":
                 owner_html = '<span class="badge badge-fa">FREE AGENT</span>'
             else:
@@ -707,7 +746,7 @@ with tab_rankings:
             )
             st.markdown(row_html, unsafe_allow_html=True)
 
-    # ------------------ SUB-SECTION: BEST AVAILABLE FREE AGENTS BY POSITION ------------------
+    # ------------------ SUB-SECTION: BEST AVAILABLE FA BY POSITION ------------------
     st.markdown("---")
     st.markdown("### 💎 Best Available Free Agents (Waiver Wire Hub)")
     st.caption("Top unowned talent ready to claim, categorized by positional scarcity.")
