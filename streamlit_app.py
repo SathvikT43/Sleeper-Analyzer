@@ -9,11 +9,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MODERN DARK THEME CSS ====================
+# ==================== EXECUTIVE POLISHED DARK THEME CSS ====================
 st.markdown("""
 <style>
     .stApp {
-        background-color: #090c10;
+        background-color: #07090e;
         color: #f1f5f9;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
@@ -31,37 +31,42 @@ st.markdown("""
     }
 
     .metric-card {
-        background: #11151f;
-        border: 1px solid #1c2333;
+        background: linear-gradient(135deg, #0e131f 0%, #111622 100%);
+        border: 1px solid #1e2638;
         border-radius: 12px;
-        padding: 14px 18px;
+        padding: 16px 20px;
         margin-bottom: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
 
     .lineup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #10141d;
-        border: 1px solid #181e2b;
-        border-radius: 8px;
-        padding: 7px 12px;
-        margin-bottom: 5px;
+        background: #0c1018;
+        border: 1px solid #161f30;
+        border-radius: 9px;
+        padding: 8px 14px;
+        margin-bottom: 6px;
+        transition: border-color 0.2s ease;
+    }
+    .lineup-row:hover {
+        border-color: #2b3954;
     }
 
     .pos-slot {
-        width: 36px;
-        height: 24px;
-        line-height: 24px;
+        width: 38px;
+        height: 25px;
+        line-height: 25px;
         font-size: 10px;
         font-weight: 800;
         color: #94a3b8;
         text-align: center;
-        background: #181f2e;
-        border-radius: 5px;
-        margin-right: 8px;
+        background: #151d2c;
+        border-radius: 6px;
+        margin-right: 10px;
         flex-shrink: 0;
-        border: 1px solid #232c3f;
+        border: 1px solid #232f46;
     }
     
     .rank-slot {
@@ -75,29 +80,29 @@ st.markdown("""
     }
 
     .player-avatar {
-        width: 34px;
-        height: 34px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         object-fit: cover;
         background: #19202f;
-        border: 1px solid #283348;
-        margin-right: 10px;
+        border: 1px solid #2b3852;
+        margin-right: 12px;
         flex-shrink: 0;
     }
 
     .badge {
-        padding: 1px 6px;
+        padding: 2px 7px;
         border-radius: 5px;
         font-size: 9px;
         font-weight: 700;
         display: inline-block;
-        margin-right: 3px;
+        margin-right: 4px;
     }
-    .badge-rookie { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
-    .badge-rising { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
-    .badge-prime { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.4); }
-    .badge-descending { background: rgba(251, 146, 60, 0.15); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.4); }
-    .badge-unc { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
+    .badge-rookie { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
+    .badge-rising { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.35); }
+    .badge-prime { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.35); }
+    .badge-descending { background: rgba(251, 146, 60, 0.15); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.35); }
+    .badge-unc { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35); }
     
     .badge-buy { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35); }
     .badge-sell { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
@@ -106,47 +111,49 @@ st.markdown("""
     .badge-fa { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.35); }
 
     .insight-card {
-        background: #11151f;
-        border: 1px solid #1c2333;
+        background: linear-gradient(135deg, #0e131f 0%, #111622 100%);
+        border: 1px solid #1e2638;
         border-radius: 12px;
-        padding: 14px 16px;
-        margin-bottom: 12px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
     }
 
     .odds-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 6px 10px;
-        background: #10141d;
-        border: 1px solid #181e2b;
-        border-radius: 7px;
-        margin-bottom: 4px;
+        padding: 7px 12px;
+        background: #0b0f17;
+        border: 1px solid #172031;
+        border-radius: 8px;
+        margin-bottom: 5px;
     }
 
     .section-header {
         font-size: 15px;
         font-weight: 700;
-        color: #f1f5f9;
-        margin-top: 14px;
-        margin-bottom: 8px;
+        color: #f8fafc;
+        margin-top: 16px;
+        margin-bottom: 10px;
+        letter-spacing: 0.3px;
     }
 
     .pos-rank-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #10141d;
-        border: 1px solid #1a2233;
-        border-radius: 8px;
-        padding: 8px 14px;
-        margin-bottom: 6px;
+        background: #0c1018;
+        border: 1px solid #182236;
+        border-radius: 9px;
+        padding: 9px 14px;
+        margin-bottom: 7px;
     }
     .pos-rank-pill {
         display: inline-block;
-        width: 48px;
+        width: 50px;
         text-align: center;
-        padding: 3px 0;
+        padding: 4px 0;
         font-size: 12px;
         font-weight: 800;
         border-radius: 6px;
@@ -156,21 +163,21 @@ st.markdown("""
     .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
 
     details.player-expand-card {
-        background: #10141d;
-        border: 1px solid #181e2b;
-        border-radius: 8px;
-        margin-bottom: 5px;
+        background: #0c1018;
+        border: 1px solid #161f30;
+        border-radius: 9px;
+        margin-bottom: 6px;
         overflow: hidden;
         transition: border-color 0.15s ease, background 0.15s ease;
     }
     details.player-expand-card[open] {
         border-color: #38bdf8;
-        background: #121724;
+        background: #111723;
     }
     details.player-expand-card summary {
         list-style: none;
         cursor: pointer;
-        padding: 7px 10px;
+        padding: 8px 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -195,9 +202,9 @@ st.markdown("""
     }
 
     .player-expand-content {
-        padding: 10px 14px 12px 14px;
-        border-top: 1px solid #1a2233;
-        background: #0d1017;
+        padding: 12px 16px 14px 16px;
+        border-top: 1px solid #1a2438;
+        background: #080b12;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -481,7 +488,7 @@ team_picks = {r["roster_id"]: [] for r in rosters}
 
 for r in rosters:
     rid = r["roster_id"]
-    for yr in [2027, 2028, 2029]:  # STRICTLY FUTURE YEARS (No 2026!)
+    for yr in [2027, 2028, 2029]:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
@@ -503,7 +510,7 @@ for tp in traded_picks:
         yr = int(tp.get("season", 2027))
     except Exception:
         yr = 2027
-    if yr >= 2027:  # STRICTLY FUTURE YEARS
+    if yr >= 2027:
         rd = int(tp.get("round", 1))
         if new_owner in team_picks:
             team_picks[new_owner].append({
@@ -720,6 +727,8 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
+    total_games = my_row['wins'] + my_row['losses']
+    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
@@ -1174,7 +1183,7 @@ with tab_deepdive:
         ]
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #38bdf8;">
+        <div class="insight-card" style="border-left: 3px solid #38bdf8;">
             <div style="color: #38bdf8; font-size: 12px; font-weight: 700;">🎯 CHAMPIONSHIP TIMELINE SYNC</div>
             <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 4px;">
                 {'Target Window: 2027–2030 (Ascending Peak)' if is_rebuilding else 'Target Window: 2026–2028 (Apex Prime Contender)'}
@@ -1188,7 +1197,7 @@ with tab_deepdive:
         if is_rebuilding and out_of_window_players:
             out_of_window_names = [f"<strong>{p['name']}</strong> ({p['pos']}, {p['age']}yo • {p['value']:,} pts)" for p in out_of_window_players]
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 4px solid #f43f5e;">
+            <div class="insight-card" style="border-left: 3px solid #f43f5e;">
                 <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">⚠️ URGENT WINDOW MISALIGNMENT (SELL NOW)</div>
                 <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                     These players are producing right now, but will cross the age cliff before your 2027–2029 championship window opens. Trade them immediately while their market value is peaked:
@@ -1200,7 +1209,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
         elif is_competing and win_now_veterans:
             st.markdown(f"""
-            <div class="insight-card" style="border-left: 4px solid #fbbf24;">
+            <div class="insight-card" style="border-left: 3px solid #fbbf24;">
                 <div style="color: #fbbf24; font-size: 12px; font-weight: 700;">🔥 WIN-NOW SCORING FOUNDATION</div>
                 <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                     Veterans fueling your weekly starter ceiling: {', '.join([p['name'] for p in win_now_veterans[:4]])}. Ride these assets through the playoffs rather than selling them for distant picks.
@@ -1209,7 +1218,7 @@ with tab_deepdive:
             """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #4ade80;">
+        <div class="insight-card" style="border-left: 3px solid #4ade80;">
             <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 IN-WINDOW CORNERSTONES (LOCKED ASSETS)</div>
             <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
                 Players whose prime aligns with your team's championship runway:
@@ -1223,7 +1232,7 @@ with tab_deepdive:
         """, unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="insight-card" style="border-left: 4px solid #a855f7;">
+        <div class="insight-card" style="border-left: 3px solid #a855f7;">
             <div style="color: #c084fc; font-size: 12px; font-weight: 700;">🔄 TARGETED LEAGUE TRADE BLUEPRINT</div>
             <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
                 {'Target contenders who need win-now scoring. Offer them your older pieces for 2027 1st-rounders to maximize your Toilet Bowl draft positioning (lowest Max PF wins pick 1.01).' if is_rebuilding else 'Target rebuilding teams in the league. Offer your 2027/2028 2nd-round picks to buy starting-lineup difference makers.'}
@@ -1377,18 +1386,18 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (VISUAL HEADSHOT TRAY) ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (ROSTER AUDIT STYLE) ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
-    st.caption("Construct multi-asset trade proposals. Selected players render as visual picture cards with valuation indexes.")
+    st.caption("Construct multi-asset trade proposals. Select players and draft picks independently to evaluate equity.")
 
     c_pod_a, c_pod_b = st.columns(2, gap="medium")
 
-    # --- LEFT POD: YOU SEND ---
+    # --- FRANCHISE A ---
     with c_pod_a:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #38bdf8; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 8px;">YOU SEND (OUTGOING ASSETS)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin-bottom: 6px;">YOU SEND (OUTGOING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         ta = st.selectbox("Select Your Franchise", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
@@ -1397,55 +1406,36 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Build player dictionary for multiselect with pictures
-        player_dict_a = {evaluate_player(p, all_players.get(p, {}))['name'] + f" ({evaluate_player(p, all_players.get(p, {}))['pos']} - {evaluate_player(p, all_players.get(p, {}))['team']})": p for p in p_a}
-        sel_player_names_a = st.multiselect("Select players to send", list(player_dict_a.keys()), key="ms_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
-        sel_pids_a = [player_dict_a[name] for name in sel_player_names_a]
+        player_options_a = {}
+        for p in p_a:
+            p_obj = evaluate_player(p, all_players.get(p, {}))
+            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            player_options_a[label] = (p, p_obj["value"], p_obj)
 
-        # Render selected players with pictures
-        val_send_players = 0
-        for pid in sel_pids_a:
-            p_obj = evaluate_player(pid, all_players.get(pid, {}))
-            val_send_players += p_obj["value"]
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
-                <div style="display: flex; align-items: center;">
-                    <img src="{p_obj['img']}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px; border: 1px solid #283348;" onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';">
-                    <span style="font-size: 12px; font-weight: 600; color: #f8fafc;">{p_obj['name']} <span style="color: #94a3b8; font-size: 10px;">({p_obj['pos']} - {p_obj['team']})</span></span>
-                </div>
-                <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">{p_obj['value']:,} pts</span>
-            </div>
-            """, unsafe_allow_html=True)
+        sel_players_a = st.multiselect("Players You Send", list(player_options_a.keys()), key="sel_pl_a", placeholder="Search players to send...", label_visibility="collapsed")
 
-        pick_dict_a = {pk['desc']: pk for pk in my_picks_a}
-        sel_pick_names_a = st.multiselect("Select draft picks to send", list(pick_dict_a.keys()), key="ms_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
-        sel_picks_a = [pick_dict_a[name] for name in sel_pick_names_a]
+        pick_options_a = {}
+        for pk in my_picks_a:
+            label = f"{pk['desc']} • {pk['value']:,} pts"
+            pick_options_a[label] = (pk, pk["value"])
 
-        val_send_picks = 0
-        for pk in sel_picks_a:
-            val_send_picks += pk["value"]
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
-                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">🎯 {pk['desc']}</span>
-                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">{pk['value']:,} pts</span>
-            </div>
-            """, unsafe_allow_html=True)
+        sel_picks_a = st.multiselect("Picks You Send", list(pick_options_a.keys()), key="sel_pk_a", placeholder="Search draft picks to send...", label_visibility="collapsed")
 
-        val_a = val_send_players + val_send_picks
+        val_a = sum(player_options_a[item][1] for item in sel_players_a) + sum(pick_options_a[item][1] for item in sel_picks_a)
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL OUTGOING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
         </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # --- RIGHT POD: YOU RECEIVE ---
+    # --- FRANCHISE B ---
     with c_pod_b:
         st.markdown("""
         <div style="background: #11151f; border: 1px solid #1c2438; border-top: 3px solid #c084fc; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 8px;">YOU RECEIVE (INCOMING ASSETS)</div>
+            <div style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px; margin-bottom: 6px;">YOU RECEIVE (INCOMING ASSETS)</div>
         """, unsafe_allow_html=True)
         
         tb = st.selectbox("Select Trade Partner", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
@@ -1454,42 +1444,25 @@ with tab_trades:
         p_b = r_b.get("players", []) or []
         my_picks_b = team_picks.get(r_b["roster_id"], [])
 
-        player_dict_b = {evaluate_player(p, all_players.get(p, {}))['name'] + f" ({evaluate_player(p, all_players.get(p, {}))['pos']} - {evaluate_player(p, all_players.get(p, {}))['team']})": p for p in p_b}
-        sel_player_names_b = st.multiselect("Select players to receive", list(player_dict_b.keys()), key="ms_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
-        sel_pids_b = [player_dict_b[name] for name in sel_player_names_b]
+        player_options_b = {}
+        for p in p_b:
+            p_obj = evaluate_player(p, all_players.get(p, {}))
+            label = f"{p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            player_options_b[label] = (p, p_obj["value"], p_obj)
 
-        val_recv_players = 0
-        for pid in sel_pids_b:
-            p_obj = evaluate_player(pid, all_players.get(pid, {}))
-            val_recv_players += p_obj["value"]
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
-                <div style="display: flex; align-items: center;">
-                    <img src="{p_obj['img']}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px; border: 1px solid #283348;" onerror="this.onerror=null;this.src='https://sleepercdn.com/images/v2/icons/player_default.webp';">
-                    <span style="font-size: 12px; font-weight: 600; color: #f8fafc;">{p_obj['name']} <span style="color: #94a3b8; font-size: 10px;">({p_obj['pos']} - {p_obj['team']})</span></span>
-                </div>
-                <span style="font-size: 12px; font-weight: 700; color: #c084fc;">{p_obj['value']:,} pts</span>
-            </div>
-            """, unsafe_allow_html=True)
+        sel_players_b = st.multiselect("Players You Receive", list(player_options_b.keys()), key="sel_pl_b", placeholder="Search players to receive...", label_visibility="collapsed")
 
-        pick_dict_b = {pk['desc']: pk for pk in my_picks_b}
-        sel_pick_names_b = st.multiselect("Select draft picks to receive", list(pick_dict_b.keys()), key="ms_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
-        sel_picks_b = [pick_dict_b[name] for name in sel_pick_names_b]
+        pick_options_b = {}
+        for pk in my_picks_b:
+            label = f"{pk['desc']} • {pk['value']:,} pts"
+            pick_options_b[label] = (pk, pk["value"])
 
-        val_recv_picks = 0
-        for pk in sel_picks_b:
-            val_recv_picks += pk["value"]
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #0d1017; border: 1px solid #1a2233; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">
-                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">🎯 {pk['desc']}</span>
-                <span style="font-size: 12px; font-weight: 700; color: #fbbf24;">{pk['value']:,} pts</span>
-            </div>
-            """, unsafe_allow_html=True)
+        sel_picks_b = st.multiselect("Picks You Receive", list(pick_options_b.keys()), key="sel_pk_b", placeholder="Search draft picks to receive...", label_visibility="collapsed")
 
-        val_b = val_recv_players + val_recv_picks
+        val_b = sum(player_options_b[item][1] for item in sel_players_b) + sum(pick_options_b[item][1] for item in sel_picks_b)
 
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">TOTAL INCOMING VALUE</span>
             <span style="font-size: 16px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
         </div>
@@ -1568,25 +1541,27 @@ with tab_trades:
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            for pid in sel_pids_a:
-                p_obj = evaluate_player(pid, all_players.get(pid, {}))
+            for item in sel_players_a:
+                _, val, p_obj = player_options_a[item]
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
-                    sim_pos_val[p_cat] -= p_obj["value"]
-                sim_pos_val["Overall"] -= p_obj["value"]
-            for pk in sel_picks_a:
-                sim_pos_val["Picks"] -= pk["value"]
-                sim_pos_val["Overall"] -= pk["value"]
+                    sim_pos_val[p_cat] -= val
+                sim_pos_val["Overall"] -= val
+            for item in sel_picks_a:
+                _, val = pick_options_a[item]
+                sim_pos_val["Picks"] -= val
+                sim_pos_val["Overall"] -= val
 
-            for pid in sel_pids_b:
-                p_obj = evaluate_player(pid, all_players.get(pid, {}))
+            for item in sel_players_b:
+                _, val, p_obj = player_options_b[item]
                 p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
                 if p_cat in sim_pos_val:
-                    sim_pos_val[p_cat] += p_obj["value"]
-                sim_pos_val["Overall"] += p_obj["value"]
-            for pk in sel_picks_b:
-                sim_pos_val["Picks"] += pk["value"]
-                sim_pos_val["Overall"] += pk["value"]
+                    sim_pos_val[p_cat] += val
+                sim_pos_val["Overall"] += val
+            for item in sel_picks_b:
+                _, val = pick_options_b[item]
+                sim_pos_val["Picks"] += val
+                sim_pos_val["Overall"] += val
 
             shift_cols = st.columns(4)
             checked_cats = ["Overall", "QB", "RB", "WR", "TE", "DL", "IDP", "Picks"]
