@@ -57,6 +57,16 @@ st.markdown("""
         border: 1px solid #232c3f;
     }
     
+    .rank-slot {
+        width: 36px;
+        font-size: 12px;
+        font-weight: 800;
+        color: #64748b;
+        text-align: center;
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+
     .player-avatar {
         width: 34px;
         height: 34px;
@@ -85,6 +95,8 @@ st.markdown("""
     .badge-buy { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35); }
     .badge-sell { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
     .badge-hold { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+    .badge-owner { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.35); }
+    .badge-fa { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.35); }
 
     .insight-card {
         background: #11151f;
@@ -176,13 +188,24 @@ roster_owner_map = {
     for r in rosters
 }
 
-# ==================== UNCAPPED VALUATION ENGINE ====================
+# Mapping: player_id -> owner team name
+player_owner_map = {}
+all_rostered_players = set()
+for r in rosters:
+    owner_name = roster_owner_map.get(r["roster_id"], f"Team {r['roster_id']}")
+    p_list = r.get("players", []) or []
+    for pid in p_list:
+        player_owner_map[pid] = owner_name
+        all_rostered_players.add(pid)
+
+# ==================== UNCAPPED NATURAL VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
-            "value": 150, "stage": "Prime", "badge": "badge-prime",
+            "pid": str(pid), "value": 150, "stage": "Prime", "badge": "badge-prime",
             "action": "HOLD", "act_badge": "badge-hold", "rookie": False,
             "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
+            "owner": player_owner_map.get(str(pid), "Free Agent"),
             "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
         }
     
@@ -191,6 +214,7 @@ def evaluate_player(pid, p_info):
     exp = p_info.get("years_exp") or 0
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
+    owner = player_owner_map.get(str(pid), "Free Agent")
 
     base_scores = {
         "WR": 560, "RB": 520, "TE": 640, "QB": 480,
@@ -240,16 +264,15 @@ def evaluate_player(pid, p_info):
         action, act_badge = "HOLD", "badge-hold"
 
     return {
-        "value": calc_val, "stage": stage, "badge": badge,
+        "pid": str(pid), "value": calc_val, "stage": stage, "badge": badge,
         "action": action, "act_badge": act_badge, "rookie": is_rookie,
-        "age": age, "pos": pos, "team": team,
+        "age": age, "pos": pos, "team": team, "owner": owner,
         "name": p_info.get("full_name") or f"Player {pid}",
         "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
     }
 
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
 pick_value_base = {1: 700, 2: 340, 3: 150}
-
 max_pf_sorted = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
 projected_pick_slot = {r["roster_id"]: idx + 1 for idx, r in enumerate(max_pf_sorted)}
 
@@ -294,16 +317,12 @@ for tp in traded_picks:
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
 
-# ==================== LEAGUE-WIDE AGGREGATION & PROJECTIONS ====================
+# ==================== LEAGUE-WIDE AGGREGATION & 3-YEAR PROJECTIONS ====================
 league_stats = []
-all_rostered_players = set()
-
 for r in rosters:
     rid = r["roster_id"]
     tname = roster_owner_map.get(rid, f"Team {rid}")
     p_ids = r.get("players", []) or []
-    all_rostered_players.update(p_ids)
-
     evals = [evaluate_player(p, all_players.get(p, {})) for p in p_ids]
     
     player_val = sum(x["value"] for x in evals)
@@ -356,14 +375,26 @@ df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"]
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
-# ==================== IDENTIFY BEST AVAILABLE FREE AGENTS ====================
-free_agents_pool = []
-for pid, p in all_players.items():
-    if pid not in all_rostered_players and p.get("team") and p.get("status") != "Inactive":
-        ev = evaluate_player(pid, p)
-        free_agents_pool.append(ev)
+# ==================== POOL OF ALL PLAYERS (ROSTERED + ACTIVE FA) ====================
+@st.cache_data(ttl=600)
+def generate_rankings_pool(p_dict, r_set):
+    pool = []
+    # 1. Add all rostered players
+    for pid in r_set:
+        p_info = p_dict.get(pid, {})
+        pool.append(evaluate_player(pid, p_info))
+    
+    # 2. Add relevant active free agents
+    for pid, p_info in p_dict.items():
+        if pid not in r_set:
+            pos = p_info.get("position")
+            team = p_info.get("team")
+            status = p_info.get("status")
+            if team and status != "Inactive" and pos in ["QB", "RB", "WR", "TE", "DL", "DE", "DT", "LB", "CB", "S", "DB"]:
+                pool.append(evaluate_player(pid, p_info))
+    return pd.DataFrame(pool)
 
-fa_df = pd.DataFrame(free_agents_pool)
+df_all_ranked = generate_rankings_pool(all_players, all_rostered_players)
 
 # ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
@@ -379,15 +410,15 @@ selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] ==
 selected_rid = selected_roster["roster_id"]
 my_row = df_league[df_league["roster_id"] == selected_rid].iloc[0]
 
-tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
+tab_overview, tab_rankings, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
     "👤 Roster & Insights",
-    "⚔️ Matchup Outlook",
+    "📈 Overall Dynasty Rankings",
     "🔮 Future & Prime Years",
     "🎲 Playoffs & Toilet Bowl",
     "📜 Trades & Calculator"
 ])
 
-# ==================== TAB 1: SPLIT SCREEN ====================
+# ==================== TAB 1: SPLIT SCREEN (ROSTER + INTELLIGENCE) ====================
 with tab_overview:
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
@@ -431,7 +462,7 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split Screen
+    # Split: Left (Lineup) | Right (Insights)
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
     # ----- LEFT: LINEUP -----
@@ -590,72 +621,138 @@ with tab_overview:
                         """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # 5. BEST AVAILABLE FREE AGENTS (WAIVER WIRE)
-        st.markdown("""
-        <div class="insight-card" style="border-left: 3px solid #a855f7;">
-            <div style="color: #c084fc; font-size: 12px; font-weight: 700;">💎 TOP AVAILABLE FREE AGENTS (WAIVER WIRE)</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Top 5 Unowned Assets by Dynasty Value</div>
-        """, unsafe_allow_html=True)
+# ==================== TAB 2: OVERALL DYNASTY RANKINGS & FREE AGENT HUB ====================
+with tab_rankings:
+    st.markdown("### 📈 Overall Dynasty Player Rankings")
+    st.caption("Uncapped dynasty asset valuations across all NFL players, active rosters, and free agency pool.")
 
-        fa_pos_tab = st.selectbox("Position Pool", ["QB", "RB", "WR", "TE", "DL", "IDP (LB/DB)"], label_visibility="collapsed")
+    # Control Bar for Filtering & Sorting
+    f1, f2, f3, f4 = st.columns([1.5, 1.5, 2, 1.2])
+    with f1:
+        filter_pos = st.selectbox("Position", ["All Positions", "QB", "RB", "WR", "TE", "DL (Edge/Interior)", "IDP (LB/DB)"])
+    with f2:
+        filter_owner = st.selectbox("Player Pool", ["All Players", "Rostered Only", "Free Agents Only"])
+    with f3:
+        age_slider = st.slider("Age Filter", min_value=20, max_value=38, value=(20, 36))
+    with f4:
+        display_limit = st.selectbox("Show Top", [50, 25, 100], index=0)
 
-        if not fa_df.empty:
-            if fa_pos_tab == "DL":
-                sub_fa = fa_df[fa_df["pos"].isin(["DL", "DE", "DT"])].sort_values(by="value", ascending=False).head(5)
-            elif "IDP" in fa_pos_tab:
-                sub_fa = fa_df[fa_df["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False).head(5)
-            else:
-                sub_fa = fa_df[fa_df["pos"] == fa_pos_tab].sort_values(by="value", ascending=False).head(5)
+    # Filter Application
+    filtered_df = df_all_ranked.copy()
 
-            for _, fa in sub_fa.iterrows():
-                rookie_tag = '<span class="badge badge-rookie">ROOKIE</span>' if fa["rookie"] else ''
-                fa_html = (
-                    f'<div class="odds-row">'
-                    f'  <div style="display: flex; align-items: center; min-width: 0;">'
-                    f'      <img src="{fa["img"]}" class="player-avatar" style="width: 28px; height: 28px; margin-right: 8px;" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
-                    f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
-                    f'          <div style="font-size: 12px; font-weight: 600; color: #f8fafc;">{fa["name"]} '
-                    f'              <span style="font-size: 10px; color: #94a3b8;">{fa["pos"]} - {fa["team"]} • {fa["age"]}yo</span>'
-                    f'          </div>'
-                    f'          <div><span class="badge {fa["badge"]}">{fa["stage"].upper()}</span>{rookie_tag}</div>'
-                    f'      </div>'
-                    f'  </div>'
-                    f'  <div style="font-size: 13px; font-weight: 800; color: #c084fc; margin-left: 8px;">{fa["value"]:,}</div>'
-                    f'</div>'
-                )
-                st.markdown(fa_html, unsafe_allow_html=True)
-        else:
-            st.caption("No free agents found matching criteria.")
+    # Position Filter
+    if filter_pos == "QB":
+        filtered_df = filtered_df[filtered_df["pos"] == "QB"]
+    elif filter_pos == "RB":
+        filtered_df = filtered_df[filtered_df["pos"] == "RB"]
+    elif filter_pos == "WR":
+        filtered_df = filtered_df[filtered_df["pos"] == "WR"]
+    elif filter_pos == "TE":
+        filtered_df = filtered_df[filtered_df["pos"] == "TE"]
+    elif "DL" in filter_pos:
+        filtered_df = filtered_df[filtered_df["pos"].isin(["DL", "DE", "DT"])]
+    elif "IDP" in filter_pos:
+        filtered_df = filtered_df[filtered_df["pos"].isin(["LB", "CB", "S", "DB"])]
 
-        st.markdown("</div>", unsafe_allow_html=True)
+    # Pool Filter
+    if filter_owner == "Rostered Only":
+        filtered_df = filtered_df[filtered_df["owner"] != "Free Agent"]
+    elif filter_owner == "Free Agents Only":
+        filtered_df = filtered_df[filtered_df["owner"] == "Free Agent"]
 
-# ==================== TAB 2: MATCHUP OUTLOOK ====================
-with tab_matchup:
-    st.subheader(f"Week {current_week} Matchup Outlook")
-    cur_matchups = matchups.get(current_week, [])
-    my_match = next((m for m in cur_matchups if m["roster_id"] == selected_rid), None)
-    
-    if not my_match:
-        st.info(f"Matchup data pending for Week {current_week}.")
+    # Age Filter
+    filtered_df = filtered_df[(filtered_df["age"] >= age_slider[0]) & (filtered_df["age"] <= age_slider[1])]
+
+    # Sort & Limit
+    sorted_df = filtered_df.sort_values(by="value", ascending=False).head(display_limit).reset_index(drop=True)
+
+    # Render Overall Rankings List
+    if sorted_df.empty:
+        st.info("No players found matching your criteria.")
     else:
-        opp = next((m for m in cur_matchups if m.get("matchup_id") == my_match.get("matchup_id") and m["roster_id"] != selected_rid), None)
-        if not opp:
-            st.info("Bye Week or Unscheduled.")
-        else:
-            opp_name = roster_owner_map.get(opp["roster_id"], f"Team {opp['roster_id']}")
-            c_m1, c_m2 = st.columns(2)
-            c_m1.markdown(f"""
-            <div class="metric-card" style="border-left: 4px solid #38bdf8;">
-                <h3>{selected_team_name} (You)</h3>
-                <div style="font-size: 30px; font-weight: 800; color: #38bdf8;">{my_match.get('points', 0.0):.2f} pts</div>
-            </div>
-            """, unsafe_allow_html=True)
-            c_m2.markdown(f"""
-            <div class="metric-card" style="border-left: 4px solid #f43f5e;">
-                <h3>{opp_name} (Opponent)</h3>
-                <div style="font-size: 30px; font-weight: 800; color: #f43f5e;">{opp.get('points', 0.0):.2f} pts</div>
-            </div>
-            """, unsafe_allow_html=True)
+        for rank, p in sorted_df.iterrows():
+            rk_num = rank + 1
+            rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
+            
+            # Owner display
+            if p["owner"] == "Free Agent":
+                owner_html = '<span class="badge badge-fa">FREE AGENT</span>'
+            else:
+                is_my_player = p["owner"] == selected_team_name
+                owner_border = "border: 1px solid #38bdf8;" if is_my_player else ""
+                owner_html = f'<span class="badge badge-owner" style="{owner_border}">{p["owner"]}</span>'
+
+            row_html = (
+                f'<div class="lineup-row">'
+                f'  <div style="display: flex; align-items: center; min-width: 0;">'
+                f'      <div class="rank-slot">#{rk_num}</div>'
+                f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                f'          <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">{p["name"]} '
+                f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                f'          </div>'
+                f'          <div style="margin-top: 2px;">'
+                f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
+                f'              {rookie_html}'
+                f'              {owner_html}'
+                f'              <span class="badge {p["act_badge"]}">{p["action"]}</span>'
+                f'          </div>'
+                f'      </div>'
+                f'  </div>'
+                f'  <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">'
+                f'      <div style="font-size: 17px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
+                f'      <div style="font-size: 10px; color: #64748b;">Dynasty Index</div>'
+                f'  </div>'
+                f'</div>'
+            )
+            st.markdown(row_html, unsafe_allow_html=True)
+
+    # ------------------ SUB-SECTION: BEST AVAILABLE FREE AGENTS BY POSITION ------------------
+    st.markdown("---")
+    st.markdown("### 💎 Best Available Free Agents (Waiver Wire Hub)")
+    st.caption("Top unowned talent ready to claim, categorized by positional scarcity.")
+
+    fa_pool_all = df_all_ranked[df_all_ranked["owner"] == "Free Agent"].copy()
+
+    fa_qb_tab, fa_rb_tab, fa_wr_tab, fa_te_tab, fa_dl_tab, fa_idp_tab = st.tabs([
+        "🏈 QB", "🏃 RB", "👐 WR", "🛡️ TE", "⚡ DL (Edge/DT)", "🎯 IDP (LB/DB)"
+    ])
+
+    def render_fa_grid(sub_df):
+        if sub_df.empty:
+            st.caption("No free agents found for this category.")
+            return
+        for rk, fa in sub_df.head(6).reset_index(drop=True).iterrows():
+            rookie_tag = '<span class="badge badge-rookie">ROOKIE</span>' if fa["rookie"] else ''
+            fa_row = (
+                f'<div class="odds-row" style="padding: 8px 12px; margin-bottom: 6px;">'
+                f'  <div style="display: flex; align-items: center; min-width: 0;">'
+                f'      <span style="font-size: 12px; font-weight: 700; color: #64748b; margin-right: 8px;">#{rk + 1}</span>'
+                f'      <img src="{fa["img"]}" class="player-avatar" style="width: 30px; height: 30px; margin-right: 8px;" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                f'          <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">{fa["name"]} '
+                f'              <span style="font-size: 11px; color: #94a3b8;">{fa["pos"]} - {fa["team"]} • {fa["age"]}yo</span>'
+                f'          </div>'
+                f'          <div style="margin-top: 1px;"><span class="badge {fa["badge"]}">{fa["stage"].upper()}</span>{rookie_tag}</div>'
+                f'      </div>'
+                f'  </div>'
+                f'  <div style="font-size: 14px; font-weight: 800; color: #c084fc; margin-left: 10px;">{fa["value"]:,} pts</div>'
+                f'</div>'
+            )
+            st.markdown(fa_row, unsafe_allow_html=True)
+
+    with fa_qb_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"] == "QB"].sort_values(by="value", ascending=False))
+    with fa_rb_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"] == "RB"].sort_values(by="value", ascending=False))
+    with fa_wr_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"] == "WR"].sort_values(by="value", ascending=False))
+    with fa_te_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"] == "TE"].sort_values(by="value", ascending=False))
+    with fa_dl_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["DL", "DE", "DT"])].sort_values(by="value", ascending=False))
+    with fa_idp_tab:
+        render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False))
 
 # ==================== TAB 3: PRIME YEARS BLUEPRINT ====================
 with tab_blueprint:
