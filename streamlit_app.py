@@ -6,77 +6,77 @@ st.set_page_config(
     page_title="Dynasty Hub & Lineup Architect", 
     page_icon="⚡", 
     layout="wide", 
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ==================== MODERN SLEEK DARK CSS ====================
 st.markdown("""
 <style>
     .stApp {
-        background-color: #0b0e14;
+        background-color: #090c10;
         color: #f1f5f9;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
     
     /* Top Summary Cards */
     .metric-card {
-        background: #121622;
-        border: 1px solid #1e2638;
+        background: #11151f;
+        border: 1px solid #1c2333;
         border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 20px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
     }
 
-    /* Single Row Lineup Styling */
+    /* Compact Single Lineup Row */
     .lineup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #11151f;
-        border: 1px solid #1a202e;
-        border-radius: 10px;
-        padding: 10px 18px;
-        margin-bottom: 6px;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        background: #10141d;
+        border: 1px solid #181e2b;
+        border-radius: 8px;
+        padding: 7px 12px;
+        margin-bottom: 5px;
+        transition: background 0.12s ease, border-color 0.12s ease;
     }
     .lineup-row:hover {
-        background: #161b27;
-        border-color: #2b354c;
+        background: #151a26;
+        border-color: #273248;
     }
 
     .pos-slot {
-        width: 44px;
-        height: 28px;
-        line-height: 28px;
-        font-size: 11px;
+        width: 38px;
+        height: 24px;
+        line-height: 24px;
+        font-size: 10px;
         font-weight: 800;
         color: #94a3b8;
         text-align: center;
-        background: #192030;
-        border-radius: 6px;
-        margin-right: 14px;
+        background: #181f2e;
+        border-radius: 5px;
+        margin-right: 10px;
         flex-shrink: 0;
-        border: 1px solid #242d42;
+        border: 1px solid #232c3f;
     }
     
     .player-avatar {
-        width: 42px;
-        height: 42px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
         object-fit: cover;
-        background: #1a2233;
-        border: 1px solid #2e384d;
-        margin-right: 14px;
+        background: #19202f;
+        border: 1px solid #283348;
+        margin-right: 10px;
         flex-shrink: 0;
     }
 
     .badge {
-        padding: 2px 7px;
-        border-radius: 6px;
-        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 9px;
         font-weight: 700;
         display: inline-block;
-        margin-right: 4px;
+        margin-right: 3px;
     }
     .badge-rookie { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
     .badge-rising { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
@@ -88,15 +88,20 @@ st.markdown("""
     .badge-sell { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
     .badge-hold { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
 
+    .insight-card {
+        background: #11151f;
+        border: 1px solid #1c2333;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+    }
+
     .section-header {
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 700;
         color: #f1f5f9;
-        margin-top: 24px;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        margin-top: 16px;
+        margin-bottom: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -104,7 +109,7 @@ st.markdown("""
 BASE_URL = "https://api.sleeper.app/v1"
 PERMANENT_LEAGUE_ID = "1312141303219249152"
 
-# League selector / override in sidebar
+# Sidebar league controller
 st.sidebar.title("⚡ League Controls")
 league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
 
@@ -163,8 +168,7 @@ roster_owner_map = {
     for r in rosters
 }
 
-# ==================== ENHANCED 0–1,000 DYNASTY VALUE ENGINE ====================
-# Scaled for: 8-Team | 1QB | 2TE (+0.25 TEP) | 4 Flex | High-Impact IDP
+# ==================== ENHANCED DYNASTY VALUATION ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -180,24 +184,12 @@ def evaluate_player(pid, p_info):
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
 
-    # Baseline on 0–1000 point scale tailored to 8-team formats
-    # In 8-team leagues, studs dominate; TEs are apex assets due to 2TE + 0.25 TEP
     base_scores = {
-        "WR": 550,
-        "RB": 520,
-        "TE": 600,   # High demand (16 starting TEs across 8 teams)
-        "QB": 420,   # 1QB lowers baseline QB replacement value
-        "DL": 380,   # Big-play IDP scoring rewards top sack generators
-        "DE": 380,
-        "DT": 330,
-        "LB": 310,
-        "CB": 210,
-        "S": 240,
-        "K": 80
+        "WR": 550, "RB": 520, "TE": 600, "QB": 420,
+        "DL": 380, "DE": 380, "DT": 330, "LB": 310, "CB": 210, "S": 240, "K": 80
     }
     base = base_scores.get(pos, 250)
 
-    # Age and Dynasty Trajectory Multipliers
     if age <= 22:
         stage, badge, mult = "Rising", "badge-rising", 1.55
     elif age <= 24:
@@ -211,7 +203,6 @@ def evaluate_player(pid, p_info):
 
     calc_val = int(base * mult)
 
-    # Actionable Trade Status
     if stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
         action, act_badge = "SELL HIGH", "badge-sell"
     elif stage == "Rising":
@@ -229,7 +220,43 @@ def evaluate_player(pid, p_info):
         "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
     }
 
-# ==================== HEADER & TEAM SELECTOR ====================
+# ==================== LEAGUE-WIDE AGGREGATION FOR RANKINGS ====================
+league_stats = []
+for r in rosters:
+    rid = r["roster_id"]
+    tname = roster_owner_map.get(rid, f"Team {rid}")
+    p_ids = r.get("players", []) or []
+    evals = [evaluate_player(p, all_players.get(p, {})) for p in p_ids]
+    
+    t_val = sum(x["value"] for x in evals)
+    t_age = sum(x["age"] for x in evals) / max(len(evals), 1)
+    
+    fpts = r.get("settings", {}).get("fpts", 0) + (r.get("settings", {}).get("fpts_decimal", 0) / 100)
+    ppts = r.get("settings", {}).get("ppts", 0) or fpts
+    eff_pct = (fpts / ppts * 100) if ppts > 0 else 0.0
+    wins = r.get("settings", {}).get("wins", 0)
+    losses = r.get("settings", {}).get("losses", 0)
+
+    league_stats.append({
+        "roster_id": rid,
+        "team_name": tname,
+        "total_value": t_val,
+        "avg_age": t_age,
+        "points_for": fpts,
+        "max_pf": ppts,
+        "efficiency": eff_pct,
+        "wins": wins,
+        "losses": losses
+    })
+
+df_league = pd.DataFrame(league_stats)
+df_league["rank_val"] = df_league["total_value"].rank(ascending=False, method="min").astype(int)
+df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").astype(int)  # younger is ranked higher
+df_league["rank_pts"] = df_league["points_for"].rank(ascending=False, method="min").astype(int)
+df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
+df_league["rank_standings"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
+
+# ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
 with h1:
     st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty Hub')}")
@@ -241,113 +268,192 @@ with h2:
 
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
 selected_rid = selected_roster["roster_id"]
+my_row = df_league[df_league["roster_id"] == selected_rid].iloc[0]
 
 tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
-    "👤 Roster & Lineup",
+    "👤 Roster & Insights",
     "⚔️ Matchup Outlook",
     "🔮 Future & Prime Years",
     "🎲 Playoffs & Toilet Bowl",
     "📜 Trades & Calculator"
 ])
 
-# ==================== TAB 1: VERTICAL ROSTER & LINEUP ====================
+# ==================== TAB 1: SPLIT SCREEN (ROSTER LEFT / INSIGHTS RIGHT) ====================
 with tab_overview:
-    pids = selected_roster.get("players", []) or []
-    starters = selected_roster.get("starters", []) or []
-    taxi = selected_roster.get("taxi", []) or []
-    reserve = selected_roster.get("reserve", []) or []
-    bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
-
-    player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
-    total_val = sum(x["value"] for x in player_evals.values())
-    avg_age = sum(x["age"] for x in player_evals.values()) / max(len(player_evals), 1)
-
+    # Top 4 Metrics with 1 of 8 Rankings
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
     <div class="metric-card">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">FRANCHISE VALUE</div>
-        <div style="font-size: 26px; font-weight: 800; color: #38bdf8; margin: 4px 0;">{total_val:,} pts</div>
-        <div style="font-size: 12px; color: #4ade80;">Dynasty Power Index</div>
+        <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">FRANCHISE VALUE</div>
+        <div style="font-size: 24px; font-weight: 800; color: #38bdf8; margin: 2px 0;">{my_row['total_value']:,} pts</div>
+        <div style="font-size: 12px; color: #4ade80; font-weight: 600;">Rank #{my_row['rank_val']} of 8</div>
     </div>
     """, unsafe_allow_html=True)
 
     m2.markdown(f"""
     <div class="metric-card">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">AVERAGE ROSTER AGE</div>
-        <div style="font-size: 26px; font-weight: 800; color: #f8fafc; margin: 4px 0;">{avg_age:.1f} yrs</div>
-        <div style="font-size: 12px; color: #818cf8;">{"Youth Foundation" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Core"}</div>
+        <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">ROSTER AVG AGE</div>
+        <div style="font-size: 24px; font-weight: 800; color: #f8fafc; margin: 2px 0;">{my_row['avg_age']:.1f} yrs</div>
+        <div style="font-size: 12px; color: #818cf8; font-weight: 600;">Rank #{my_row['rank_age']} of 8 (Youth)</div>
     </div>
     """, unsafe_allow_html=True)
 
-    fpts = selected_roster.get("settings", {}).get("fpts", 0) + (selected_roster.get("settings", {}).get("fpts_decimal", 0)/100)
     m3.markdown(f"""
     <div class="metric-card">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">TOTAL POINTS</div>
-        <div style="font-size: 26px; font-weight: 800; color: #fbbf24; margin: 4px 0;">{fpts:.1f}</div>
-        <div style="font-size: 12px; color: #94a3b8;">Max PF: {selected_roster.get('settings', {}).get('ppts', 0):.1f}</div>
+        <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">START EFFICIENCY</div>
+        <div style="font-size: 24px; font-weight: 800; color: #fbbf24; margin: 2px 0;">{my_row['efficiency']:.1f}%</div>
+        <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">Rank #{my_row['rank_eff']} of 8 ({my_row['points_for']:.1f} PF)</div>
     </div>
     """, unsafe_allow_html=True)
 
-    w = selected_roster.get("settings", {}).get("wins", 0)
-    l = selected_roster.get("settings", {}).get("losses", 0)
     m4.markdown(f"""
     <div class="metric-card">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">RECORD</div>
-        <div style="font-size: 26px; font-weight: 800; color: #f43f5e; margin: 4px 0;">{w}W - {l}L</div>
-        <div style="font-size: 12px; color: #94a3b8;">Win Rate: {w / max(w + l, 1):.2f}</div>
+        <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
+        <div style="font-size: 24px; font-weight: 800; color: #f43f5e; margin: 2px 0;">{my_row['wins']}W - {my_row['losses']}L</div>
+        <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">Rank #{my_row['rank_standings']} of 8 overall</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Vertical Lineup Section Renderer
-    def render_vertical_lineup(title, player_list, slot_label="BN"):
-        st.markdown(f'<div class="section-header">{title} <span style="font-size: 13px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
-        if not player_list:
-            st.caption("No players in this section.")
-            return
+    pids = selected_roster.get("players", []) or []
+    starters = selected_roster.get("starters", []) or []
+    taxi = selected_roster.get("taxi", []) or []
+    reserve = selected_roster.get("reserve", []) or []
+    bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
+    player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-        league_slots = league_info.get("roster_positions", [])
+    # Split: Left (60% Roster) | Right (40% Insights)
+    col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
+
+    with col_roster:
+        def render_compact_lineup(title, player_list, slot_label="BN"):
+            st.markdown(f'<div class="section-header">{title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
+            if not player_list:
+                st.caption("No players assigned.")
+                return
+
+            league_slots = league_info.get("roster_positions", [])
+            
+            for idx, pid in enumerate(player_list):
+                p = player_evals.get(pid)
+                if not p:
+                    continue
+                
+                # Format Slot Label (Fix IDP Flex to say IDP)
+                if slot_label == "START":
+                    raw_slot = league_slots[idx] if idx < len(league_slots) else "FLEX"
+                    if "IDP" in raw_slot:
+                        pos_display = "IDP"
+                    elif raw_slot in ["DL", "DE", "DT"]:
+                        pos_display = "DL"
+                    else:
+                        pos_display = raw_slot
+                else:
+                    pos_display = slot_label
+
+                rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
+                
+                row_html = (
+                    f'<div class="lineup-row">'
+                    f'  <div style="display: flex; align-items: center; min-width: 0;">'
+                    f'      <div class="pos-slot">{pos_display}</div>'
+                    f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                    f'      <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                    f'          <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">{p["name"]} '
+                    f'              <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} • {p["age"]}yo</span>'
+                    f'          </div>'
+                    f'          <div style="margin-top: 2px;">'
+                    f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
+                    f'              {rookie_html}'
+                    f'              <span class="badge {p["act_badge"]}">{p["action"]}</span>'
+                    f'          </div>'
+                    f'      </div>'
+                    f'  </div>'
+                    f'  <div style="text-align: right; flex-shrink: 0; margin-left: 8px;">'
+                    f'      <div style="font-size: 15px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
+                    f'      <div style="font-size: 10px; color: #64748b;">Dynasty Index</div>'
+                    f'  </div>'
+                    f'</div>'
+                )
+                st.markdown(row_html, unsafe_allow_html=True)
+
+        render_compact_lineup("⚡ Starters", starters, slot_label="START")
+        render_compact_lineup("🪑 Bench", bench, slot_label="BN")
+        render_compact_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
+        render_compact_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
+
+    with col_insights:
+        st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        for idx, pid in enumerate(player_list):
-            p = player_evals.get(pid)
-            if not p:
-                continue
-            
-            if slot_label == "START":
-                pos_display = league_slots[idx] if idx < len(league_slots) else "FLEX"
-            else:
-                pos_display = slot_label
+        # Prime Window Projection
+        if my_row["avg_age"] < 24.8:
+            prime_window = "2027 – 2030 (Ascending Young Core)"
+            strategy_text = "Stockpile 2027/2028 draft capital. Your roster will dominate for years once youth matures."
+        elif my_row["avg_age"] <= 26.8:
+            prime_window = "2026 – 2028 (Apex Prime Window)"
+            strategy_text = "Push your chips in. Acquire elite TEs and DL sacks to capture the championship."
+        else:
+            prime_window = "2026 (Closing Window)"
+            strategy_text = "Sell players past age 28 for future 1sts before their value drops off a cliff."
 
-            rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
-            
-            row_html = (
-                f'<div class="lineup-row">'
-                f'  <div style="display: flex; align-items: center; gap: 4px;">'
-                f'      <div class="pos-slot">{pos_display}</div>'
-                f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
-                f'      <div>'
-                f'          <div style="font-size: 15px; font-weight: 600; color: #f8fafc;">{p["name"]} '
-                f'              <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
-                f'          </div>'
-                f'          <div style="margin-top: 3px;">'
-                f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
-                f'              {rookie_html}'
-                f'              <span class="badge {p["act_badge"]}">{p["action"]}</span>'
-                f'          </div>'
-                f'      </div>'
-                f'  </div>'
-                f'  <div style="text-align: right;">'
-                f'      <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
-                f'      <div style="font-size: 11px; color: #64748b;">Dynasty Index</div>'
-                f'  </div>'
-                f'</div>'
-            )
-            st.markdown(row_html, unsafe_allow_html=True)
+        # Odds Calculations
+        playoff_odds = 98 if my_row["rank_standings"] <= 4 else (74 if my_row["rank_standings"] <= 6 else 15)
+        champ_odds = round((my_row["total_value"] / df_league["total_value"].sum()) * 100, 1)
 
-    # Render ALL segments in ONE vertical top-to-bottom layout
-    render_vertical_lineup("⚡ Starters", starters, slot_label="START")
-    render_vertical_lineup("🪑 Bench", bench, slot_label="BN")
-    render_vertical_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
-    render_vertical_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
+        st.markdown(f"""
+        <div class="insight-card">
+            <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">CHAMPIONSHIP PRIME WINDOW</div>
+            <div style="font-size: 20px; font-weight: 800; color: #38bdf8; margin: 4px 0;">{prime_window}</div>
+            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 0;">{strategy_text}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Odds Card
+        st.markdown(f"""
+        <div class="insight-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">PLAYOFF ODDS (TOP 6)</div>
+                    <div style="font-size: 22px; font-weight: 800; color: {'#4ade80' if playoff_odds >= 70 else '#f43f5e'};">{playoff_odds}%</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">TITLE CHANCE</div>
+                    <div style="font-size: 22px; font-weight: 800; color: #fbbf24;">{champ_odds}%</div>
+                </div>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Based on roster power, schedule pacing, and 8-team distribution.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Core Keepers vs Sell Candidates
+        superstars = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]
+        rising = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]
+        uncs = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]
+
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #4ade80;">
+            <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 CORNERSTONE ASSETS (KEEP)</div>
+            <p style="font-size: 12px; color: #f1f5f9; margin-top: 4px; margin-bottom: 0;">{', '.join(superstars + rising[:4]) if (superstars or rising) else 'None identified'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #f43f5e;">
+            <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">🔴 AGING ASSETS (TRADE CANDIDATES)</div>
+            <p style="font-size: 12px; color: #f1f5f9; margin-top: 4px; margin-bottom: 0;">{', '.join(uncs[:5]) if uncs else 'No aging assets currently'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Toilet Bowl Race Alert
+        toilet_teams = df_league.sort_values(by=["wins", "points_for"]).head(2)
+        st.markdown(f"""
+        <div class="insight-card" style="border-left: 3px solid #facc15;">
+            <div style="color: #facc15; font-size: 12px; font-weight: 700;">🚽 TOILET BOWL (PICK 1.01 RACE)</div>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                Teams 7 & 8 play for the top pick. <strong>Lowest Max PF wins 1.01</strong>.
+                <br>🥇 <strong>Current 1.01 Pace:</strong> {toilet_teams.iloc[0]['team_name']} ({toilet_teams.iloc[0]['max_pf']:.1f} Max PF)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== TAB 2: MATCHUP OUTLOOK ====================
 with tab_matchup:
@@ -377,88 +483,33 @@ with tab_matchup:
             </div>
             """, unsafe_allow_html=True)
 
-# ==================== TAB 3: PRIME YEARS ====================
+# ==================== TAB 3: PRIME YEARS BLUEPRINT ====================
 with tab_blueprint:
-    st.subheader("Championship Runway & Strategy Blueprint")
-    
-    superstars = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]
-    rising = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]
-    uncs = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]
-
-    if avg_age < 24.8:
-        window = "2027 – 2030 (Ascending Powerhouse)"
-        strategy = "Stockpile 2027/2028 1st round draft picks. Do not trade away youth for short-term fixes."
-    elif avg_age <= 26.8:
-        window = "2026 – 2028 (Apex Championship Window)"
-        strategy = "Go all-in. Trade future 2nd/3rd round picks to buy top tight ends or edge rushers."
-    else:
-        window = "2026 (Closing Window - Must Retool Soon)"
-        strategy = "Aggressively trade older players past age 28 to contenders for 2027–2029 draft capital."
-
-    st.markdown(f"""
-    <div class="metric-card">
-        <h4>🏆 Projected Prime Window</h4>
-        <div style="font-size: 28px; font-weight: 800; color: #38bdf8; margin: 6px 0;">{window}</div>
-        <p><strong>Recommended Strategy:</strong> {strategy}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    b1, b2 = st.columns(2)
-    b1.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #4ade80;">
-        <h5 style="color: #4ade80;">🌟 Core Players to Keep</h5>
-        <p>{', '.join(superstars + rising[:4]) if (superstars or rising) else 'None identified'}</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    b2.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #ef4444;">
-        <h5 style="color: #f87171;">⏳ Trade Candidates (Sell High / Unc)</h5>
-        <p>{', '.join(uncs[:5]) if uncs else 'No aging players currently'}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader("Championship Runway & Full League Trajectories")
+    st.dataframe(
+        df_league[["team_name", "total_value", "avg_age", "points_for", "max_pf", "rank_val", "rank_age"]].rename(columns={
+            "team_name": "Team", "total_value": "Dynasty Score", "avg_age": "Avg Age",
+            "points_for": "Points For", "max_pf": "Max PF", "rank_val": "Value Rank", "rank_age": "Youth Rank"
+        }).style.format({"Dynasty Score": "{:,}", "Avg Age": "{:.1f}", "Points For": "{:.1f}", "Max PF": "{:.1f}"}),
+        use_container_width=True
+    )
 
 # ==================== TAB 4: PLAYOFFS & TOILET BOWL ====================
 with tab_playoffs:
     st.subheader("Playoffs (Top 6) & Toilet Bowl (Seeds 7 & 8)")
-    
-    records = []
-    for r in rosters:
-        rid = r["roster_id"]
-        tname = roster_owner_map.get(rid, f"Team {rid}")
-        wins = r.get("settings", {}).get("wins", 0)
-        losses = r.get("settings", {}).get("losses", 0)
-        pts = r.get("settings", {}).get("fpts", 0) + (r.get("settings", {}).get("fpts_decimal", 0)/100)
-        max_pf = r.get("settings", {}).get("ppts", 0) or pts
-        records.append({
-            "Team": tname, "Wins": wins, "Losses": losses,
-            "Points For": pts, "Max PF": max_pf
-        })
-
-    df_p = pd.DataFrame(records).sort_values(by=["Wins", "Points For"], ascending=False).reset_index(drop=True)
-    df_p["Playoff Seed"] = range(1, len(df_p) + 1)
-    df_p["Playoff Odds"] = [98 if i < 4 else (74 if i < 6 else 12) for i in range(len(df_p))]
-
     st.dataframe(
-        df_p[["Playoff Seed", "Team", "Wins", "Losses", "Points For", "Max PF", "Playoff Odds"]].style.format({
-            "Points For": "{:.1f}", "Max PF": "{:.1f}", "Playoff Odds": "{:.0f}%"
+        df_league[["rank_standings", "team_name", "wins", "losses", "points_for", "max_pf", "efficiency"]].rename(columns={
+            "rank_standings": "Seed", "team_name": "Team", "wins": "W", "losses": "L",
+            "points_for": "Points For", "max_pf": "Max PF", "efficiency": "Efficiency %"
+        }).sort_values(by="Seed").style.format({
+            "Points For": "{:.1f}", "Max PF": "{:.1f}", "Efficiency %": "{:.1f}%"
         }),
         use_container_width=True
     )
 
-    t_teams = df_p.tail(2).sort_values(by="Max PF", ascending=True)
-    st.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #facc15;">
-        <h4>🚽 Toilet Bowl Standings (Draft Pick 1.01 Race)</h4>
-        <p>Seeds 7 & 8 battle in the Toilet Bowl. Per your rules, <strong>lower Max PF gets the #1 pick</strong>.</p>
-        <p>🥇 <strong>Current #1 Pick Favorite:</strong> {t_teams.iloc[0]['Team']} ({t_teams.iloc[0]['Max PF']:.1f} Max PF)</p>
-        <p>🥈 <strong>Current #2 Pick Favorite:</strong> {t_teams.iloc[1]['Team']} ({t_teams.iloc[1]['Max PF']:.1f} Max PF)</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ==================== TAB 5: TRADES ====================
+# ==================== TAB 5: TRADES & CALCULATOR ====================
 with tab_trades:
-    st.subheader("Dynasty Trade Calculator")
+    st.subheader("Dynasty Trade Calculator (0–1,000 Scale)")
     ca, cb = st.columns(2)
     with ca:
         ta = st.selectbox("Team A", team_names, index=0, key="t_a")
@@ -476,7 +527,6 @@ with tab_trades:
         sel_pb = st.multiselect(f"Players from {tb}", list(opts_b.keys()), key="spb")
         sel_pkb = st.multiselect(f"Picks from {tb}", [f"{y} Rd {r}" for y in [2027, 2028, 2029] for r in [1, 2, 3]], key="spkb")
 
-    # Scaled Draft Pick Values
     pick_vals = {"Rd 1": 650, "Rd 2": 320, "Rd 3": 140}
     val_a = sum(evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))["value"] for p in sel_pa)
     for pk in sel_pka:
