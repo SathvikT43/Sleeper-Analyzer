@@ -121,22 +121,39 @@ st.markdown("""
         font-size: 15px;
         font-weight: 700;
         color: #f1f5f9;
-        margin-top: 16px;
+        margin-top: 18px;
         margin-bottom: 8px;
     }
 
-    div[data-testid="stExpander"] {
+    /* Interactive Dropdown Player Card Container */
+    details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
         border-radius: 8px;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
+        overflow: hidden;
+        transition: border-color 0.15s ease, background 0.15s ease;
     }
-    div[data-testid="stExpander"]:hover {
-        border-color: #273248;
+    details.player-expand-card[open] {
+        border-color: #38bdf8;
+        background: #121724;
     }
-    div[data-testid="stExpander"] > details > summary {
+    details.player-expand-card summary {
+        list-style: none;
+        cursor: pointer;
         padding: 8px 12px;
-        color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+    }
+    details.player-expand-card summary::-webkit-details-marker {
+        display: none;
+    }
+    .player-expand-content {
+        padding: 12px 16px 14px 16px;
+        border-top: 1px solid #1a2233;
+        background: #0d1017;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -250,13 +267,11 @@ def evaluate_player(pid, p_info):
     gp = int(p_stat.get("gp", 0) or 0)
     pts_half_ppr = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
     
-    # Calculate genuine Points Per Game (games active)
     if gp > 0:
         ppg = round(pts_half_ppr / gp, 1)
     else:
         ppg = 0.0
 
-    # Build readable NFL stats string
     stat_fragments = []
     if pos == "QB":
         pass_yd = int(p_stat.get("pass_yd", 0))
@@ -292,9 +307,8 @@ def evaluate_player(pid, p_info):
         if tkl > 0 or sack > 0:
             stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
 
-    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut or rotational reserve)"
+    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut or reserve)"
 
-    # Base Talent Score
     if search_rank and search_rank > 0:
         if search_rank <= 12:
             talent_score = 920 - (search_rank * 8)
@@ -316,7 +330,6 @@ def evaluate_player(pid, p_info):
         else:
             talent_score = 70
 
-    # League Format Position Multiplier
     pos_multiplier = 1.0
     if pos == "TE":
         pos_multiplier = 1.28
@@ -332,7 +345,6 @@ def evaluate_player(pid, p_info):
     elif pos in ["CB", "S", "DB"]:
         pos_multiplier = 0.75
 
-    # Dynasty Age Multiplier
     if pos == "QB":
         if age <= 25:
             stage, badge, age_mult = "Rising", "badge-rising", 1.15
@@ -384,15 +396,15 @@ def evaluate_player(pid, p_info):
 
     desc = f"{p_info.get('full_name')} ({age}yo {pos}) for the {team}. "
     if dynasty_val >= 700:
-        desc += "Elite centerpiece offering maximum weekly leverage in 8-team formats."
+        desc += "Elite tier centerpiece offering maximum weekly scoring leverage."
     elif stage == "Rising":
-        desc += "Ascending young weapon with high dynasty growth runway."
+        desc += "Ascending young talent with strong multi-year development runway."
     elif stage == "Prime":
-        desc += "Peak-window starter actively producing in their championship years."
+        desc += "Peak-window producer currently in their prime championship years."
     elif stage == "Descending":
-        desc += "High immediate weekly scoring output, but entering the veteran age window."
+        desc += "High immediate win-now scoring power, but nearing the age cliff where value declines."
     else:
-        desc += "Veteran depth asset; suitable bridge starter for contending lineups."
+        desc += "Veteran contributor with limited multi-year runway; suitable bridge starter for contenders."
 
     return {
         "pid": str(pid), "value": dynasty_val, "redraft_val": redraft_val,
@@ -619,7 +631,6 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split: Left (Lineup) | Right (Insights)
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
     with col_roster:
@@ -675,7 +686,6 @@ with tab_overview:
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        # 1. Combined Prime Window & 3-Year Odds
         if my_row["avg_age"] < 24.8:
             prime_window = "2027 – 2030 (Ascending Young Core)"
             strategy_text = "Stockpile draft capital. Your young roster will peak strongly in 1-2 years."
@@ -716,7 +726,6 @@ with tab_overview:
             st.markdown(row_html, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 2. 2026 Playoff Odds
         playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["odds_2026"] >= 15 else 75)
         st.markdown(f"""
         <div class="insight-card">
@@ -734,7 +743,6 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. Deduplicated Keepers & Sell Candidates
         superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 750]))
         rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 500]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
@@ -753,7 +761,6 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 4. Draft Capital
         my_picks = team_picks.get(selected_rid, [])
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #38bdf8;">
@@ -853,7 +860,6 @@ with tab_rankings:
             )
             st.markdown(row_html, unsafe_allow_html=True)
 
-    # SUB-SECTION: BEST AVAILABLE FA BY POSITION
     st.markdown("---")
     st.markdown("### 💎 Best Available Free Agents (Waiver Wire Hub)")
     st.caption("Top unowned talent ready to claim, categorized by positional scarcity.")
@@ -900,7 +906,7 @@ with tab_rankings:
     with fa_idp_tab:
         render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False))
 
-# ==================== TAB 3: DEEP DIVE (EXPANDABLE LINEUP + AI STRATEGY) ====================
+# ==================== TAB 3: DEEP DIVE (NATIVE COLLAPSIBLE CARDS + DYNAMIC AI) ====================
 with tab_deepdive:
     st.markdown(f"### 🔍 Deep Dive: {selected_team_name}")
     st.caption("Click any player to reveal their real-time NFL statistics, 2026 PPG, and valuation comparison.")
@@ -936,61 +942,90 @@ with tab_deepdive:
     </div>
     """, unsafe_allow_html=True)
 
-    # Interactive Expandable Lineup View
-    st.markdown("#### 📋 Franchise Roster (Click Row to Expand Real NFL Stats)")
+    # Function to render interactive player card with native HTML <details>
+    def render_deepdive_player_group(section_title, player_id_list, slot_label="BN"):
+        st.markdown(f'<div class="section-header">{section_title} <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">({len(player_id_list)})</span></div>', unsafe_allow_html=True)
+        if not player_id_list:
+            st.caption("No players assigned in this category.")
+            return
 
-    my_player_objects = [evaluate_player(p, all_players.get(p, {})) for p in pids]
-    my_player_objects = sorted(my_player_objects, key=lambda x: x["value"], reverse=True)
+        league_slots = league_info.get("roster_positions", [])
 
-    for p in my_player_objects:
-        rookie_badge = "🔰 Rookie" if p["rookie"] else ""
-        header_text = f"[{p['pos']}]  {p['name']} ({p['team']}) • Age: {p['age']} • Dynasty: {p['value']:,} pts | Redraft: {p['redraft_val']:,} pts {rookie_badge}"
-        
-        with st.expander(header_text):
-            col_l, col_m, col_r = st.columns([1, 2, 2.2])
-            
-            with col_l:
-                st.image(p["img"], width=105)
-                st.markdown(f"""
-                <div style="margin-top: 6px;">
-                    <span class="badge {p['badge']}">{p['stage'].upper()}</span>
-                    <span class="badge {p['act_badge']}">{p['action']}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_m:
-                diff_val = p['value'] - p['redraft_val']
-                diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
-                st.markdown(f"""
-                <div style="font-size: 13px; line-height: 1.8;">
-                    <strong>2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p['ppg']} ppg</span> ({p['gp']} GP)<br>
-                    <strong>Dynasty Index:</strong> <span style="color: #38bdf8; font-weight: 700;">{p['value']:,} pts</span><br>
-                    <strong>Redraft Index:</strong> <span style="color: #94a3b8; font-weight: 700;">{p['redraft_val']:,} pts</span><br>
-                    <strong>Dynasty Premium:</strong> <span style="color: {diff_color}; font-weight: 700;">{diff_val:+d} pts</span>
-                </div>
-                """, unsafe_allow_html=True)
+        for idx, pid in enumerate(player_id_list):
+            p = player_evals.get(pid)
+            if not p:
+                continue
 
-            with col_r:
-                st.markdown(f"""
-                <div style="font-size: 13px; line-height: 1.7;">
-                    <strong>Real 2026 NFL Stats:</strong><br>
-                    <span style="color: #38bdf8; font-weight: 600;">{p['stat_line']}</span><br>
-                    <div style="margin-top: 6px;">
-                        <strong>Bio:</strong> #{p['number']} | {p['college']} | {p['height']}, {p['weight']} lbs
-                    </div>
-                    <p style="color: #cbd5e1; font-size: 12px; margin-top: 6px;">{p['desc']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            if slot_label == "START":
+                raw_slot = league_slots[idx] if idx < len(league_slots) else "FLEX"
+                pos_display = "IDP" if "IDP" in raw_slot else ("DL" if raw_slot in ["DL", "DE", "DT"] else raw_slot)
+            else:
+                pos_display = slot_label
 
-    # Dynamic AI Franchise Strategy
+            rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
+            diff_val = p['value'] - p['redraft_val']
+            diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
+
+            # HTML5 <details> card that preserves the exact main page look while supporting full drop-down details
+            card_html = (
+                f'<details class="player-expand-card">'
+                f'  <summary>'
+                f'      <div style="display: flex; align-items: center; min-width: 0;">'
+                f'          <div class="pos-slot">{pos_display}</div>'
+                f'          <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                f'          <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                f'              <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">{p["name"]} '
+                f'                  <span style="font-size: 11px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                f'              </div>'
+                f'              <div style="margin-top: 2px;">'
+                f'                  <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
+                f'                  {rookie_html}'
+                f'                  <span class="badge {p["act_badge"]}">{p["action"]}</span>'
+                f'              </div>'
+                f'          </div>'
+                f'      </div>'
+                f'      <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">'
+                f'          <div style="font-size: 16px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
+                f'          <div style="font-size: 10px; color: #64748b;">Dynasty Index ▾</div>'
+                f'      </div>'
+                f'  </summary>'
+                f'  <div class="player-expand-content">'
+                f'      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px;">'
+                f'          <div style="min-width: 220px; font-size: 12px; line-height: 1.8;">'
+                f'              <strong>2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p["ppg"]} ppg</span> ({p["gp"]} Games Played)<br>'
+                f'              <strong>Dynasty Index:</strong> <span style="color: #38bdf8; font-weight: 700;">{p["value"]:,} pts</span><br>'
+                f'              <strong>Redraft Win-Now:</strong> <span style="color: #94a3b8; font-weight: 700;">{p["redraft_val"]:,} pts</span><br>'
+                f'              <strong>Dynasty Premium:</strong> <span style="color: {diff_color}; font-weight: 700;">{diff_val:+d} pts</span>'
+                f'          </div>'
+                f'          <div style="flex: 1; min-width: 260px; font-size: 12px; line-height: 1.7;">'
+                f'              <strong>Real 2026 NFL Stats:</strong><br>'
+                f'              <span style="color: #38bdf8; font-weight: 600;">{p["stat_line"]}</span><br>'
+                f'              <div style="margin-top: 4px; color: #94a3b8;">'
+                f'                  #{p["number"]} • {p["college"]} • {p["height"]}, {p["weight"]} lbs'
+                f'              </div>'
+                f'              <p style="color: #cbd5e1; font-size: 11px; margin-top: 4px; margin-bottom: 0;">{p["desc"]}</p>'
+                f'          </div>'
+                f'      </div>'
+                f'  </div>'
+                f'</details>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
+
+    # Render organized exactly like Sleeper & Main Page:
+    render_deepdive_player_group("⚡ Starters", starters, slot_label="START")
+    render_deepdive_player_group("🪑 Bench", bench, slot_label="BN")
+    render_deepdive_player_group("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
+    render_deepdive_player_group("🚕 Taxi Squad", taxi, slot_label="TAXI")
+
+    # Dynamic Franchise Strategy
     st.markdown("---")
     st.markdown("#### 🧠 Tailored Franchise Action Blueprint")
 
-    # Granular analysis for THIS specific team
-    my_te_count = len([x for x in my_player_objects if x["pos"] == "TE"])
-    my_young_studs = [x["name"] for x in my_player_objects if x["value"] >= 650 and x["age"] <= 25]
-    my_veterans = [x["name"] for x in my_player_objects if x["age"] >= 28 and x["value"] >= 200]
-    my_dl_studs = [x["name"] for x in my_player_objects if x["pos"] in ["DL", "DE", "DT"] and x["value"] >= 350]
+    my_all_player_objs = [player_evals[p] for p in pids if p in player_evals]
+    my_te_count = len([x for x in my_all_player_objs if x["pos"] == "TE"])
+    my_young_studs = [x["name"] for x in my_all_player_objs if x["value"] >= 650 and x["age"] <= 25]
+    my_veterans = [x["name"] for x in my_all_player_objs if x["age"] >= 28 and x["value"] >= 200]
+    my_dl_studs = [x["name"] for x in my_all_player_objs if x["pos"] in ["DL", "DE", "DT"] and x["value"] >= 350]
 
     strat_col1, strat_col2 = st.columns(2)
 
