@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS / IOS LIQUID GLASS & CLEAN TAB ILLUMINATION CSS ====================
+# ==================== MACOS / IOS LIQUID GLASS & CLEAN CONTAINER CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -36,7 +36,20 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Completely Remove Streamlit's Default Tab Container Border/Box */
+    /* Completely Remove Main Content Wrapper Box/Border */
+    section.main > div {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .block-container {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Floating Frosted Glass Tab Bar (Segmented Control) */
     div.stTabs {
         background: transparent !important;
         border: none !important;
