@@ -9,83 +9,95 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== APPLE GLASSMORPHISM CSS ====================
+# ==================== MODERN SLEEK DARK CSS ====================
 st.markdown("""
 <style>
     .stApp {
-        background: radial-gradient(circle at 15% 15%, #151824 0%, #0a0c10 100%);
+        background-color: #0b0e14;
         color: #f1f5f9;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
     
-    .glass-card {
-        background: rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 18px;
-        padding: 20px;
-        margin-bottom: 16px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    /* Top Summary Cards */
+    .metric-card {
+        background: #121622;
+        border: 1px solid #1e2638;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
     }
-    
+
+    /* Single Row Lineup Styling */
     .lineup-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 14px;
-        padding: 10px 14px;
-        margin-bottom: 8px;
-        transition: all 0.2s ease-in-out;
+        background: #11151f;
+        border: 1px solid #1a202e;
+        border-radius: 10px;
+        padding: 10px 18px;
+        margin-bottom: 6px;
+        transition: background 0.15s ease, border-color 0.15s ease;
     }
     .lineup-row:hover {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.16);
+        background: #161b27;
+        border-color: #2b354c;
     }
 
     .pos-slot {
-        width: 48px;
-        font-size: 13px;
+        width: 44px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 11px;
         font-weight: 800;
         color: #94a3b8;
         text-align: center;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 5px 0;
-        margin-right: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #192030;
+        border-radius: 6px;
+        margin-right: 14px;
+        flex-shrink: 0;
+        border: 1px solid #242d42;
     }
     
     .player-avatar {
-        width: 44px;
-        height: 44px;
+        width: 42px;
+        height: 42px;
         border-radius: 50%;
         object-fit: cover;
-        background: #1e293b;
-        border: 2px solid rgba(255, 255, 255, 0.1);
-        margin-right: 12px;
+        background: #1a2233;
+        border: 1px solid #2e384d;
+        margin-right: 14px;
+        flex-shrink: 0;
     }
 
     .badge {
         padding: 2px 7px;
-        border-radius: 8px;
+        border-radius: 6px;
         font-size: 10px;
         font-weight: 700;
         display: inline-block;
         margin-right: 4px;
     }
-    .badge-rookie { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
-    .badge-rising { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid #4ade80; }
-    .badge-prime { background: rgba(129, 140, 248, 0.2); color: #818cf8; border: 1px solid #818cf8; }
-    .badge-descending { background: rgba(251, 146, 60, 0.2); color: #fb923c; border: 1px solid #fb923c; }
-    .badge-unc { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid #f43f5e; }
+    .badge-rookie { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .badge-rising { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
+    .badge-prime { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.4); }
+    .badge-descending { background: rgba(251, 146, 60, 0.15); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.4); }
+    .badge-unc { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
     
-    .badge-buy { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
-    .badge-sell { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
-    .badge-hold { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
+    .badge-buy { background: rgba(34, 197, 94, 0.15); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35); }
+    .badge-sell { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .badge-hold { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+
+    .section-header {
+        font-size: 17px;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-top: 24px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -151,11 +163,12 @@ roster_owner_map = {
     for r in rosters
 }
 
-# ==================== VALUATION ENGINE ====================
+# ==================== ENHANCED 0–1,000 DYNASTY VALUE ENGINE ====================
+# Scaled for: 8-Team | 1QB | 2TE (+0.25 TEP) | 4 Flex | High-Impact IDP
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
-            "value": 20, "stage": "Prime", "badge": "badge-prime",
+            "value": 150, "stage": "Prime", "badge": "badge-prime",
             "action": "HOLD", "act_badge": "badge-hold", "rookie": False,
             "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
             "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
@@ -167,23 +180,38 @@ def evaluate_player(pid, p_info):
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
 
+    # Baseline on 0–1000 point scale tailored to 8-team formats
+    # In 8-team leagues, studs dominate; TEs are apex assets due to 2TE + 0.25 TEP
     base_scores = {
-        "QB": 50, "RB": 65, "WR": 75, "TE": 80,
-        "DL": 45, "DE": 45, "DT": 40, "LB": 35, "CB": 25, "S": 30, "K": 10
+        "WR": 550,
+        "RB": 520,
+        "TE": 600,   # High demand (16 starting TEs across 8 teams)
+        "QB": 420,   # 1QB lowers baseline QB replacement value
+        "DL": 380,   # Big-play IDP scoring rewards top sack generators
+        "DE": 380,
+        "DT": 330,
+        "LB": 310,
+        "CB": 210,
+        "S": 240,
+        "K": 80
     }
-    base = base_scores.get(pos, 30)
+    base = base_scores.get(pos, 250)
 
-    if age <= 23:
-        stage, badge, mult = "Rising", "badge-rising", 1.35
-    elif 24 <= age <= 27:
+    # Age and Dynasty Trajectory Multipliers
+    if age <= 22:
+        stage, badge, mult = "Rising", "badge-rising", 1.55
+    elif age <= 24:
+        stage, badge, mult = "Rising", "badge-rising", 1.40
+    elif 25 <= age <= 27:
         stage, badge, mult = "Prime", "badge-prime", 1.15
     elif 28 <= age <= 29:
-        stage, badge, mult = "Descending", "badge-descending", 0.85
+        stage, badge, mult = "Descending", "badge-descending", 0.75
     else:
-        stage, badge, mult = "Unc", "badge-unc", 0.55
+        stage, badge, mult = "Unc", "badge-unc", 0.42
 
     calc_val = int(base * mult)
 
+    # Actionable Trade Status
     if stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
         action, act_badge = "SELL HIGH", "badge-sell"
     elif stage == "Rising":
@@ -222,7 +250,7 @@ tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
     "📜 Trades & Calculator"
 ])
 
-# ==================== TAB 1: ROSTER & LINEUP ====================
+# ==================== TAB 1: VERTICAL ROSTER & LINEUP ====================
 with tab_overview:
     pids = selected_roster.get("players", []) or []
     starters = selected_roster.get("starters", []) or []
@@ -236,26 +264,26 @@ with tab_overview:
 
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(f"""
-    <div class="glass-card">
-        <div style="color: #94a3b8; font-size: 13px;">FRANCHISE VALUE</div>
-        <div style="font-size: 26px; font-weight: 700; color: #38bdf8;">{total_val:,} pts</div>
+    <div class="metric-card">
+        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">FRANCHISE VALUE</div>
+        <div style="font-size: 26px; font-weight: 800; color: #38bdf8; margin: 4px 0;">{total_val:,} pts</div>
         <div style="font-size: 12px; color: #4ade80;">Dynasty Power Index</div>
     </div>
     """, unsafe_allow_html=True)
 
     m2.markdown(f"""
-    <div class="glass-card">
-        <div style="color: #94a3b8; font-size: 13px;">ROSTER AVG AGE</div>
-        <div style="font-size: 26px; font-weight: 700; color: #f8fafc;">{avg_age:.1f} yrs</div>
+    <div class="metric-card">
+        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">AVERAGE ROSTER AGE</div>
+        <div style="font-size: 26px; font-weight: 800; color: #f8fafc; margin: 4px 0;">{avg_age:.1f} yrs</div>
         <div style="font-size: 12px; color: #818cf8;">{"Youth Foundation" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Core"}</div>
     </div>
     """, unsafe_allow_html=True)
 
     fpts = selected_roster.get("settings", {}).get("fpts", 0) + (selected_roster.get("settings", {}).get("fpts_decimal", 0)/100)
     m3.markdown(f"""
-    <div class="glass-card">
-        <div style="color: #94a3b8; font-size: 13px;">TOTAL POINTS</div>
-        <div style="font-size: 26px; font-weight: 700; color: #fbbf24;">{fpts:.1f}</div>
+    <div class="metric-card">
+        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">TOTAL POINTS</div>
+        <div style="font-size: 26px; font-weight: 800; color: #fbbf24; margin: 4px 0;">{fpts:.1f}</div>
         <div style="font-size: 12px; color: #94a3b8;">Max PF: {selected_roster.get('settings', {}).get('ppts', 0):.1f}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -263,18 +291,18 @@ with tab_overview:
     w = selected_roster.get("settings", {}).get("wins", 0)
     l = selected_roster.get("settings", {}).get("losses", 0)
     m4.markdown(f"""
-    <div class="glass-card">
-        <div style="color: #94a3b8; font-size: 13px;">RECORD</div>
-        <div style="font-size: 26px; font-weight: 700; color: #f43f5e;">{w}W - {l}L</div>
-        <div style="font-size: 12px; color: #94a3b8;">Win %: {w / max(w + l, 1):.2f}</div>
+    <div class="metric-card">
+        <div style="color: #94a3b8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">RECORD</div>
+        <div style="font-size: 26px; font-weight: 800; color: #f43f5e; margin: 4px 0;">{w}W - {l}L</div>
+        <div style="font-size: 12px; color: #94a3b8;">Win Rate: {w / max(w + l, 1):.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Clean Lineup Renderer without Markdown Indentation Issues
-    def render_lineup_section(title, player_list, slot_label="BN"):
-        st.markdown(f"### {title} ({len(player_list)})")
+    # Vertical Lineup Section Renderer
+    def render_vertical_lineup(title, player_list, slot_label="BN"):
+        st.markdown(f'<div class="section-header">{title} <span style="font-size: 13px; color: #94a3b8; font-weight: 400;">({len(player_list)})</span></div>', unsafe_allow_html=True)
         if not player_list:
-            st.caption("No players in this slot.")
+            st.caption("No players in this section.")
             return
 
         league_slots = league_info.get("roster_positions", [])
@@ -284,7 +312,6 @@ with tab_overview:
             if not p:
                 continue
             
-            # Determine Slot Name
             if slot_label == "START":
                 pos_display = league_slots[idx] if idx < len(league_slots) else "FLEX"
             else:
@@ -294,12 +321,12 @@ with tab_overview:
             
             row_html = (
                 f'<div class="lineup-row">'
-                f'  <div style="display: flex; align-items: center;">'
+                f'  <div style="display: flex; align-items: center; gap: 4px;">'
                 f'      <div class="pos-slot">{pos_display}</div>'
                 f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
                 f'      <div>'
                 f'          <div style="font-size: 15px; font-weight: 600; color: #f8fafc;">{p["name"]} '
-                f'              <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                f'              <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
                 f'          </div>'
                 f'          <div style="margin-top: 3px;">'
                 f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
@@ -309,20 +336,18 @@ with tab_overview:
                 f'      </div>'
                 f'  </div>'
                 f'  <div style="text-align: right;">'
-                f'      <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">{p["value"]}</div>'
+                f'      <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">{p["value"]:,}</div>'
                 f'      <div style="font-size: 11px; color: #64748b;">Dynasty Index</div>'
                 f'  </div>'
                 f'</div>'
             )
             st.markdown(row_html, unsafe_allow_html=True)
 
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        render_lineup_section("⚡ Starters", starters, slot_label="START")
-        render_lineup_section("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
-    with c2:
-        render_lineup_section("🪑 Bench", bench, slot_label="BN")
-        render_lineup_section("🚕 Taxi Squad", taxi, slot_label="TAXI")
+    # Render ALL segments in ONE vertical top-to-bottom layout
+    render_vertical_lineup("⚡ Starters", starters, slot_label="START")
+    render_vertical_lineup("🪑 Bench", bench, slot_label="BN")
+    render_vertical_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
+    render_vertical_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
 # ==================== TAB 2: MATCHUP OUTLOOK ====================
 with tab_matchup:
@@ -340,13 +365,13 @@ with tab_matchup:
             opp_name = roster_owner_map.get(opp["roster_id"], f"Team {opp['roster_id']}")
             c_m1, c_m2 = st.columns(2)
             c_m1.markdown(f"""
-            <div class="glass-card" style="border-left: 4px solid #38bdf8;">
+            <div class="metric-card" style="border-left: 4px solid #38bdf8;">
                 <h3>{selected_team_name} (You)</h3>
                 <div style="font-size: 30px; font-weight: 800; color: #38bdf8;">{my_match.get('points', 0.0):.2f} pts</div>
             </div>
             """, unsafe_allow_html=True)
             c_m2.markdown(f"""
-            <div class="glass-card" style="border-left: 4px solid #f43f5e;">
+            <div class="metric-card" style="border-left: 4px solid #f43f5e;">
                 <h3>{opp_name} (Opponent)</h3>
                 <div style="font-size: 30px; font-weight: 800; color: #f43f5e;">{opp.get('points', 0.0):.2f} pts</div>
             </div>
@@ -356,8 +381,8 @@ with tab_matchup:
 with tab_blueprint:
     st.subheader("Championship Runway & Strategy Blueprint")
     
-    superstars = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 75]
-    rising = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 45]
+    superstars = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]
+    rising = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]
     uncs = [player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]
 
     if avg_age < 24.8:
@@ -371,7 +396,7 @@ with tab_blueprint:
         strategy = "Aggressively trade older players past age 28 to contenders for 2027–2029 draft capital."
 
     st.markdown(f"""
-    <div class="glass-card">
+    <div class="metric-card">
         <h4>🏆 Projected Prime Window</h4>
         <div style="font-size: 28px; font-weight: 800; color: #38bdf8; margin: 6px 0;">{window}</div>
         <p><strong>Recommended Strategy:</strong> {strategy}</p>
@@ -380,14 +405,14 @@ with tab_blueprint:
 
     b1, b2 = st.columns(2)
     b1.markdown(f"""
-    <div class="glass-card" style="border-left: 4px solid #4ade80;">
+    <div class="metric-card" style="border-left: 4px solid #4ade80;">
         <h5 style="color: #4ade80;">🌟 Core Players to Keep</h5>
         <p>{', '.join(superstars + rising[:4]) if (superstars or rising) else 'None identified'}</p>
     </div>
     """, unsafe_allow_html=True)
     
     b2.markdown(f"""
-    <div class="glass-card" style="border-left: 4px solid #ef4444;">
+    <div class="metric-card" style="border-left: 4px solid #ef4444;">
         <h5 style="color: #f87171;">⏳ Trade Candidates (Sell High / Unc)</h5>
         <p>{', '.join(uncs[:5]) if uncs else 'No aging players currently'}</p>
     </div>
@@ -423,7 +448,7 @@ with tab_playoffs:
 
     t_teams = df_p.tail(2).sort_values(by="Max PF", ascending=True)
     st.markdown(f"""
-    <div class="glass-card" style="border-left: 4px solid #facc15;">
+    <div class="metric-card" style="border-left: 4px solid #facc15;">
         <h4>🚽 Toilet Bowl Standings (Draft Pick 1.01 Race)</h4>
         <p>Seeds 7 & 8 battle in the Toilet Bowl. Per your rules, <strong>lower Max PF gets the #1 pick</strong>.</p>
         <p>🥇 <strong>Current #1 Pick Favorite:</strong> {t_teams.iloc[0]['Team']} ({t_teams.iloc[0]['Max PF']:.1f} Max PF)</p>
@@ -451,21 +476,22 @@ with tab_trades:
         sel_pb = st.multiselect(f"Players from {tb}", list(opts_b.keys()), key="spb")
         sel_pkb = st.multiselect(f"Picks from {tb}", [f"{y} Rd {r}" for y in [2027, 2028, 2029] for r in [1, 2, 3]], key="spkb")
 
-    pick_vals = {"Rd 1": 70, "Rd 2": 38, "Rd 3": 18}
+    # Scaled Draft Pick Values
+    pick_vals = {"Rd 1": 650, "Rd 2": 320, "Rd 3": 140}
     val_a = sum(evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))["value"] for p in sel_pa)
     for pk in sel_pka:
-        val_a += pick_vals.get(pk.split(" ")[1] + " " + pk.split(" ")[2], 25)
+        val_a += pick_vals.get(pk.split(" ")[1] + " " + pk.split(" ")[2], 200)
 
     val_b = sum(evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))["value"] for p in sel_pb)
     for pk in sel_pkb:
-        val_b += pick_vals.get(pk.split(" ")[1] + " " + pk.split(" ")[2], 25)
+        val_b += pick_vals.get(pk.split(" ")[1] + " " + pk.split(" ")[2], 200)
 
     st.markdown("---")
     res1, res2, res3 = st.columns(3)
-    res1.metric(f"{ta} Gives", f"{val_a} pts")
-    res2.metric(f"{tb} Gives", f"{val_b} pts")
+    res1.metric(f"{ta} Gives", f"{val_a:,} pts")
+    res2.metric(f"{tb} Gives", f"{val_b:,} pts")
     delta = val_a - val_b
-    res3.metric("Trade Edge", f"{abs(delta)} pts", f"{'Favors ' + ta if delta < 0 else 'Favors ' + tb}")
+    res3.metric("Trade Edge", f"{abs(delta):,} pts", f"{'Favors ' + ta if delta < 0 else 'Favors ' + tb}")
 
     st.markdown("### 🧾 Recent Completed League Trades")
     if not all_trades:
