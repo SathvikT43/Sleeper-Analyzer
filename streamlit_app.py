@@ -261,8 +261,9 @@ for r in rosters:
         player_owner_map[pid] = owner_name
         all_rostered_players.add(pid)
 
-# ==================== TRUE 1QB DYNASTY VALUATION ENGINE ====================
-# Tailored specifically for: 8 Teams | 1QB | 2TE (+0.25 TEP) | 4 Flex | IDP Big-Play
+# ==================== TRUE 1QB UNIFIED DYNASTY VALUATION ENGINE ====================
+# Scaled for 8 Teams | 1QB | 2TE (+0.25 TEP) | 4 Flex | IDP Big-Play
+# RBs, WRs, and 2TE tight ends dominate the top tiers; QBs are properly calibrated for 1QB
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -304,7 +305,7 @@ def evaluate_player(pid, p_info):
             stat_fragments.append(f"{pass_yd} Pass Yds • {pass_td} TD • {pass_int} INT")
             if rush_yd > 0:
                 stat_fragments.append(f"{rush_yd} Rush Yds • {rush_td} TD")
-            scout_fragments.append(f"Leading {team}'s passing game with {pass_yd} passing yards.")
+            scout_fragments.append(f"Starting QB for {team} with {pass_td} TDs.")
     elif pos == "RB":
         rush_att = int(p_stat.get("rush_att", 0))
         rush_yd = int(p_stat.get("rush_yd", 0))
@@ -315,7 +316,7 @@ def evaluate_player(pid, p_info):
             stat_fragments.append(f"{rush_att} Car • {rush_yd} Yds • {rush_td} TD")
             if rec > 0:
                 stat_fragments.append(f"{rec} Rec • {rec_yd} Yds")
-            scout_fragments.append(f"Workhorse RB1 for {team} logging {rush_att} carries and {rec} receptions.")
+            scout_fragments.append(f"Leading {team}'s backfield with {rush_att} carries and {rec} receptions.")
     elif pos in ["WR", "TE"]:
         rec = int(p_stat.get("rec", 0))
         rec_yd = int(p_stat.get("rec_yd", 0))
@@ -323,29 +324,29 @@ def evaluate_player(pid, p_info):
         rec_tgt = int(p_stat.get("rec_tgt", 0))
         if rec_tgt > 0 or rec > 0:
             stat_fragments.append(f"{rec}/{rec_tgt} Targets • {rec_yd} Yds • {rec_td} TD")
-            scout_fragments.append(f"Key pass-catcher in {team} earning {rec_tgt} targets.")
+            scout_fragments.append(f"Primary target in {team} with {rec_tgt} targets.")
     else:  # IDP
         tkl = int(p_stat.get("idp_tkl", 0) or p_stat.get("tkl", 0))
         sack = float(p_stat.get("idp_sack", 0) or p_stat.get("sack", 0))
         tfl = int(p_stat.get("idp_tkl_loss", 0) or p_stat.get("tkl_loss", 0))
         if tkl > 0 or sack > 0:
             stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
-            scout_fragments.append(f"Front-7 playmaker with {sack:.1f} sacks.")
+            scout_fragments.append(f"Disruptive defender tallying {sack:.1f} sacks.")
 
     stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut)"
 
-    # 1. BASE TALENT SCORE: Derived from actual NFL draft/adp market consensus
+    # Base Talent Score from Sleeper Market Consensus
     if search_rank and search_rank > 0:
         if search_rank <= 10:
             talent_score = 940 - (search_rank * 6)
         elif search_rank <= 30:
-            talent_score = 860 - ((search_rank - 10) * 5)
+            talent_score = 870 - ((search_rank - 10) * 5)
         elif search_rank <= 80:
-            talent_score = 720 - ((search_rank - 30) * 3)
+            talent_score = 740 - ((search_rank - 30) * 3.2)
         elif search_rank <= 200:
-            talent_score = 550 - ((search_rank - 80) * 1.8)
+            talent_score = 560 - ((search_rank - 80) * 1.8)
         elif search_rank <= 450:
-            talent_score = 300 - ((search_rank - 200) * 0.7)
+            talent_score = 310 - ((search_rank - 200) * 0.7)
         else:
             talent_score = max(40, 120 - ((search_rank - 450) * 0.08))
     else:
@@ -356,35 +357,34 @@ def evaluate_player(pid, p_info):
         else:
             talent_score = 60
 
-    # 2. POSITION MULTIPLIERS FOR 1QB (NOT SUPERFLEX!):
-    # In 1QB 8-Team, only 8 QBs start! RBs, WRs, and 2TE TEP dominate the top of the board!
+    # Strict 1QB Position Multipliers
     if pos == "RB":
-        pos_multiplier = 1.35   # Bijan, Gibbs, Achane are true apex assets in 1QB
+        pos_multiplier = 1.38   # Bijan Robinson & Jahmyr Gibbs top the dynasty charts
     elif pos == "WR":
-        pos_multiplier = 1.30   # Chase, Lamb, Jefferson, St. Brown, JSN
+        pos_multiplier = 1.32   # Ja'Marr Chase, CeeDee Lamb, Justin Jefferson, JSN
     elif pos == "TE":
-        pos_multiplier = 1.25   # Brock Bowers, McBride (2TE + 0.25 TEP boost)
+        pos_multiplier = 1.25   # Brock Bowers, Trey McBride (2TE + 0.25 TEP boost)
     elif pos == "QB":
-        # In 1QB 8-Team, QB replacement value is immense. Only top tier (Allen, Lamar, Mahomes) hold premium value
+        # In 8-team 1QB, replacement value is huge. Only elite QBs retain solid value
         if search_rank and search_rank <= 20:
-            pos_multiplier = 0.68  # Elite QB1s (Josh Allen, Lamar) land comfortably in top 20-30 overall
+            pos_multiplier = 0.58  # Josh Allen / Lamar Jackson / Patrick Mahomes
         elif search_rank and search_rank <= 60:
-            pos_multiplier = 0.50  # Mid QB1s (Hurts, Burrow, Maye, Daniels)
+            pos_multiplier = 0.42  # Mid QBs (Hurts, Burrow, Maye, Daniels)
         elif depth_order and depth_order >= 2:
-            pos_multiplier = 0.12  # Backup QBs have virtually zero starting value in 8-team 1QB
+            pos_multiplier = 0.10  # Backup QBs
         else:
-            pos_multiplier = 0.35  # Low-end starting QBs
+            pos_multiplier = 0.28  # Lower-tier starters
     elif pos in ["DL", "DE"]:
-        pos_multiplier = 0.65   # Top tier edge rushers
+        pos_multiplier = 0.65
     else:
-        pos_multiplier = 0.45   # IDP DB/LB
+        pos_multiplier = 0.45
 
-    # 3. AGE MULTIPLIERS
+    # Age Multipliers
     if pos == "RB":
         if age <= 23:
             stage, badge, age_mult = "Rising", "badge-rising", 1.25
         elif age <= 25:
-            stage, badge, age_mult = "Prime", "badge-prime", 1.10
+            stage, badge, age_mult = "Prime", "badge-prime", 1.12
         elif age <= 27:
             stage, badge, age_mult = "Prime", "badge-prime", 0.95
         elif age <= 29:
@@ -587,24 +587,21 @@ df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"]
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
 
-# ==================== POOL OF ALL PLAYERS ====================
-@st.cache_data(ttl=600)
-def generate_rankings_pool(p_dict, r_set):
-    pool = []
-    for pid in r_set:
-        p_info = p_dict.get(pid, {})
-        pool.append(evaluate_player(pid, p_info))
-    
-    for pid, p_info in p_dict.items():
-        if pid not in r_set:
-            pos = p_info.get("position")
-            team = p_info.get("team")
-            status = p_info.get("status")
-            if team and status != "Inactive" and pos in ["QB", "RB", "WR", "TE", "DL", "DE", "DT", "LB", "CB", "S", "DB"]:
-                pool.append(evaluate_player(pid, p_info))
-    return pd.DataFrame(pool)
+# ==================== POOL OF PLAYERS (SYNCHRONIZED - NO STALE CACHE) ====================
+pool = []
+for pid in all_rostered_players:
+    p_info = all_players.get(pid, {})
+    pool.append(evaluate_player(pid, p_info))
 
-df_all_ranked = generate_rankings_pool(all_players, all_rostered_players)
+for pid, p_info in all_players.items():
+    if pid not in all_rostered_players:
+        pos = p_info.get("position")
+        team = p_info.get("team")
+        status = p_info.get("status")
+        if team and status != "Inactive" and pos in ["QB", "RB", "WR", "TE", "DL", "DE", "DT", "LB", "CB", "S", "DB"]:
+            pool.append(evaluate_player(pid, p_info))
+
+df_all_ranked = pd.DataFrame(pool)
 
 # ==================== HEADER & SELECTOR ====================
 h1, h2 = st.columns([3, 1])
@@ -1023,7 +1020,7 @@ with tab_deepdive:
                     f'              </div>'
                     f'              <div style="margin-top: 2px;">'
                     f'                  <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
-                    f'                  {rookie_html}'
+                    f'              {rookie_html}'
                     f'                  <span class="badge {p["act_badge"]}">{p["action"]}</span>'
                     f'              </div>'
                     f'          </div>'
