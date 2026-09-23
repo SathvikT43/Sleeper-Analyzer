@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MODERN DARK UI CSS ====================
+# ==================== MODERN DARK THEME CSS ====================
 st.markdown("""
 <style>
     .stApp {
@@ -94,6 +94,17 @@ st.markdown("""
         margin-bottom: 12px;
     }
 
+    .odds-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 10px;
+        background: #10141d;
+        border: 1px solid #181e2b;
+        border-radius: 8px;
+        margin-bottom: 4px;
+    }
+
     .section-header {
         font-size: 15px;
         font-weight: 700;
@@ -155,7 +166,7 @@ if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
     st.stop()
 
-# User / Roster Maps
+# Maps
 user_map = {
     u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
     for u in users
@@ -165,7 +176,7 @@ roster_owner_map = {
     for r in rosters
 }
 
-# ==================== VALUATION ENGINE ====================
+# ==================== UNICAPPED NATURAL VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
         return {
@@ -181,30 +192,52 @@ def evaluate_player(pid, p_info):
     is_rookie = exp == 0
     team = p_info.get("team") or "FA"
 
+    # Base values reflecting custom 8-team 2TE + 0.25 TEP + IDP format
     base_scores = {
-        "WR": 550, "RB": 520, "TE": 600, "QB": 420,
-        "DL": 380, "DE": 380, "DT": 330, "LB": 310, "CB": 210, "S": 240, "K": 80
+        "WR": 560, "RB": 520, "TE": 640, "QB": 480,
+        "DL": 400, "DE": 400, "DT": 340, "LB": 310, "CB": 210, "S": 240, "K": 80
     }
     base = base_scores.get(pos, 250)
 
-    if age <= 22:
-        stage, badge, mult = "Rising", "badge-rising", 1.55
-    elif age <= 24:
-        stage, badge, mult = "Rising", "badge-rising", 1.40
-    elif 25 <= age <= 27:
-        stage, badge, mult = "Prime", "badge-prime", 1.15
-    elif 28 <= age <= 29:
-        stage, badge, mult = "Descending", "badge-descending", 0.75
-    else:
-        stage, badge, mult = "Unc", "badge-unc", 0.42
+    # Position-specific age longevity curves (e.g. QBs don't fall off at age 30 like RBs)
+    if pos == "QB":
+        if age <= 24:
+            stage, badge, mult = "Rising", "badge-rising", 1.45
+        elif age <= 31:
+            stage, badge, mult = "Prime", "badge-prime", 1.25
+        elif age <= 34:
+            stage, badge, mult = "Descending", "badge-descending", 0.95
+        else:
+            stage, badge, mult = "Unc", "badge-unc", 0.65
+    elif pos in ["TE", "DL", "DE"]:
+        if age <= 23:
+            stage, badge, mult = "Rising", "badge-rising", 1.50
+        elif age <= 28:
+            stage, badge, mult = "Prime", "badge-prime", 1.20
+        elif age <= 30:
+            stage, badge, mult = "Descending", "badge-descending", 0.85
+        else:
+            stage, badge, mult = "Unc", "badge-unc", 0.50
+    else:  # RB, WR, DB
+        if age <= 22:
+            stage, badge, mult = "Rising", "badge-rising", 1.60
+        elif age <= 24:
+            stage, badge, mult = "Rising", "badge-rising", 1.40
+        elif 25 <= age <= 27:
+            stage, badge, mult = "Prime", "badge-prime", 1.15
+        elif 28 <= age <= 29:
+            stage, badge, mult = "Descending", "badge-descending", 0.75
+        else:
+            stage, badge, mult = "Unc", "badge-unc", 0.40
 
+    # Natural uncapped value: allows studs to reach 900-1100+ naturally
     calc_val = int(base * mult)
 
     if stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
         action, act_badge = "SELL HIGH", "badge-sell"
     elif stage == "Rising":
         action, act_badge = "BUY / STRONG HOLD", "badge-buy"
-    elif stage == "Prime" and pos in ["TE", "DL"]:
+    elif stage == "Prime" and pos in ["TE", "DL", "QB"]:
         action, act_badge = "CORE ASSET", "badge-buy"
     else:
         action, act_badge = "HOLD", "badge-hold"
@@ -218,13 +251,11 @@ def evaluate_player(pid, p_info):
     }
 
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
-pick_value_base = {1: 650, 2: 320, 3: 140}
+pick_value_base = {1: 700, 2: 340, 3: 150}
 
-# Projected draft order by Max PF (Lowest Max PF gets 1.01 in Toilet Bowl)
 max_pf_sorted = sorted(rosters, key=lambda r: (r.get("settings", {}).get("ppts", 0) or r.get("settings", {}).get("fpts", 0)))
 projected_pick_slot = {r["roster_id"]: idx + 1 for idx, r in enumerate(max_pf_sorted)}
 
-# Build full pick ownership (2027 to 2029)
 team_picks = {r["roster_id"]: [] for r in rosters}
 for r in rosters:
     rid = r["roster_id"]
@@ -242,7 +273,7 @@ for r in rosters:
                     "year": yr, "round": rd, "original_rid": rid,
                     "desc": f"{yr} Rd {rd} (Proj '{yr_short}.0{proj_slot})",
                     "proj_slot": proj_slot,
-                    "value": int(pick_value_base[rd] * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
+                    "value": int(pick_value_base[rd] * (1.30 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
                 })
 
 for tp in traded_picks:
@@ -260,10 +291,9 @@ for tp in traded_picks:
             "year": yr, "round": rd, "original_rid": orig_roster,
             "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')} (Proj '{yr_short}.0{proj_slot})",
             "proj_slot": proj_slot,
-            "value": int(pick_value_base.get(rd, 200) * (1.25 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
+            "value": int(pick_value_base.get(rd, 200) * (1.30 if proj_slot <= 2 else (1.0 if proj_slot <= 5 else 0.85)))
         })
 
-# Sort each team's picks by Year, then Round, then Slot
 for rid in team_picks:
     team_picks[rid] = sorted(team_picks[rid], key=lambda x: (x["year"], x["round"], x["proj_slot"]))
 
@@ -286,21 +316,21 @@ for r in rosters:
     wins = r.get("settings", {}).get("wins", 0)
     losses = r.get("settings", {}).get("losses", 0)
 
-    # 2026 Current Year Title Score (Heavily weighted on 2026 PPG & current W-L)
+    # 2026 Title Score: heavily favors current week points & win record
     win_pct = wins / max(wins + losses, 1)
-    title_score_2026 = (win_pct * 45.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.001)
+    title_score_2026 = (win_pct * 50.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.0008)
     if wins == 0 and current_week >= 2:
-        title_score_2026 *= 0.30
+        title_score_2026 *= 0.25
 
-    # 2027 Projected Title Score (Youth maturing + 2027 draft capital arriving)
-    youth_bonus_2027 = max(0, (26.5 - t_age) * 15)
+    # 2027 Title Score: youth aging into prime + 2027 draft pick injection
     picks_2027_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] == 2027)
-    title_score_2027 = (player_val * 0.03) + youth_bonus_2027 + (picks_2027_val * 0.04)
+    age_factor_2027 = max(0.6, 1.4 - (max(0, t_age - 24.5) * 0.15))
+    title_score_2027 = (player_val * age_factor_2027 * 0.01) + (picks_2027_val * 0.006)
 
-    # 2028 Projected Title Score (Long runway + full pick stash)
-    youth_bonus_2028 = max(0, (26.0 - t_age) * 22)
-    picks_2028_val = sum(p["value"] for p in team_picks.get(rid, []) if p["year"] <= 2028)
-    title_score_2028 = (player_val * 0.025) + youth_bonus_2028 + (picks_2028_val * 0.05)
+    # 2028 Title Score: compound rebuilders & draft hoarders over older teams
+    all_future_picks = sum(p["value"] for p in team_picks.get(rid, []))
+    age_factor_2028 = max(0.4, 1.6 - (max(0, t_age - 24.0) * 0.25))
+    title_score_2028 = (player_val * age_factor_2028 * 0.01) + (all_future_picks * 0.008)
 
     league_stats.append({
         "roster_id": rid,
@@ -325,7 +355,7 @@ df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
 df_league["rank_standings"] = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index().index + 1
 
-# Calibrate Title Odds % for 2026, 2027, 2028
+# Calibrate clean 100% normalized odds
 df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2027"] = ((df_league["score_2027"] / max(df_league["score_2027"].sum(), 1.0)) * 100).round(1)
 df_league["odds_2028"] = ((df_league["score_2028"] / max(df_league["score_2028"].sum(), 1.0)) * 100).round(1)
@@ -394,7 +424,7 @@ with tab_overview:
     bench = [p for p in pids if p not in starters and p not in taxi and p not in reserve]
     player_evals = {pid: evaluate_player(pid, all_players.get(pid, {})) for pid in pids}
 
-    # Split Screen
+    # Split: Left (Lineup) | Right (Insights)
     col_roster, col_insights = st.columns([1.2, 0.8], gap="medium")
 
     # ----- LEFT COLUMN: LINEUP -----
@@ -448,11 +478,11 @@ with tab_overview:
         render_compact_lineup("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
         render_compact_lineup("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
-    # ----- RIGHT COLUMN: FRANCHISE INTELLIGENCE -----
+    # ----- RIGHT COLUMN: INTELLIGENCE -----
     with col_insights:
         st.markdown('<div class="section-header">🧠 Franchise Intelligence</div>', unsafe_allow_html=True)
         
-        # 1. EXPANDED 3-YEAR PRIME WINDOW & TITLE ODDS
+        # 1. 3-Year Prime Window Headline
         if my_row["avg_age"] < 24.8:
             prime_window = "2027 – 2030 (Ascending Young Core)"
             strategy_text = "Stockpile draft capital. Your young roster will peak strongly in 1-2 years."
@@ -471,33 +501,32 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 3-Year Title Odds Interactive Viewer
-        st.markdown("""
-        <div style="font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 4px;">
-            🏆 3-YEAR CHAMPIONSHIP PROBABILITY (ALL TEAMS)
-        </div>
-        """, unsafe_allow_html=True)
+        # 2. Sleek Custom Glassmorphism 3-Year Championship Odds List
+        st.markdown('<div class="insight-card">', unsafe_allow_html=True)
+        st.markdown('<div style="color: #94a3b8; font-size: 11px; font-weight: 700; margin-bottom: 6px;">🏆 3-YEAR CHAMPIONSHIP PROBABILITY</div>', unsafe_allow_html=True)
         
         selected_year = st.radio("Season", ["2026 (Current)", "2027 (Next)", "2028 (Year 3)"], horizontal=True, label_visibility="collapsed")
         
-        if "2026" in selected_year:
-            year_col = "odds_2026"
-        elif "2027" in selected_year:
-            year_col = "odds_2027"
-        else:
-            year_col = "odds_2028"
+        year_col = "odds_2026" if "2026" in selected_year else ("odds_2027" if "2027" in selected_year else "odds_2028")
+        sorted_odds = df_league[["team_name", year_col]].sort_values(by=year_col, ascending=False).reset_index(drop=True)
 
-        odds_display_df = df_league[["team_name", year_col]].rename(columns={
-            "team_name": "Team", year_col: "Title Chance %"
-        }).sort_values(by="Title Chance %", ascending=False)
-        
-        st.dataframe(
-            odds_display_df.style.format({"Title Chance %": "{:.1f}%"}),
-            use_container_width=True,
-            height=210
-        )
+        for rank, row in enumerate(sorted_odds.itertuples(), 1):
+            is_me = row.team_name == selected_team_name
+            highlight_border = "border: 1px solid #38bdf8; background: #151f2e;" if is_me else "border: 1px solid #181e2b; background: #10141d;"
+            accent_color = "#38bdf8" if is_me else "#f8fafc"
+            
+            row_html = (
+                f'<div class="odds-row" style="{highlight_border}">'
+                f'  <div style="font-size: 12px; font-weight: 600; color: {accent_color};">'
+                f'      <span style="color: #64748b; margin-right: 6px;">#{rank}</span> {row.team_name}'
+                f'  </div>'
+                f'  <div style="font-size: 12px; font-weight: 800; color: #fbbf24;">{getattr(row, year_col):.1f}%</div>'
+                f'</div>'
+            )
+            st.markdown(row_html, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # 2. 2026 Playoff Odds
+        # 3. 2026 Playoff Odds
         playoff_odds = 45 if my_row["wins"] == 0 else (98 if my_row["rank_standings"] <= 4 else 75)
         st.markdown(f"""
         <div class="insight-card">
@@ -511,11 +540,11 @@ with tab_overview:
                     <div style="font-size: 22px; font-weight: 800; color: {'#38bdf8' if my_row['odds_2026'] >= 15 else '#f43f5e'};">{my_row['odds_2026']}%</div>
                 </div>
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects 0-2 start, scoring pacing, and 8-team competition.</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Reflects 0-2 start, weekly points, and 8-team competition.</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. Deduplicated Keepers and Sell Candidates
+        # 4. Deduplicated Keepers & Sell Candidates
         superstars = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["value"] >= 650]))
         rising = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Rising" and player_evals[p]["value"] >= 450]))
         uncs = list(dict.fromkeys([player_evals[p]["name"] for p in pids if player_evals.get(p) and player_evals[p]["stage"] == "Unc"]))
@@ -534,7 +563,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 4. Toilet Bowl Projection
+        # 5. Toilet Bowl Projection
         tb_leader = df_league.sort_values(by="max_pf").iloc[0]
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #facc15;">
@@ -546,7 +575,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-        # 5. DRAFT CAPITAL (ALL PICKS AT VERY BOTTOM, GROUPED BY YEAR)
+        # 6. ALL DRAFT PICKS (AT THE VERY BOTTOM, UNDER TOILET BOWL)
         my_picks = team_picks.get(selected_rid, [])
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #38bdf8;">
