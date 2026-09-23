@@ -155,6 +155,26 @@ st.markdown("""
     .rank-mid { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
     .rank-low { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); }
 
+    /* Trade Card Styles */
+    .trade-pod {
+        background: #11151f;
+        border: 1px solid #1c2438;
+        border-radius: 12px;
+        padding: 16px;
+        height: 100%;
+    }
+    .trade-pill-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0b0e15;
+        border: 1px solid #1a2233;
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-top: 4px;
+        font-size: 12px;
+    }
+
     details.player-expand-card {
         background: #10141d;
         border: 1px solid #181e2b;
@@ -491,7 +511,7 @@ for r in rosters:
             if not traded:
                 team_picks[rid].append({
                     "year": yr, "round": rd, "original_rid": rid,
-                    "desc": f"{yr} Rd {rd} (Team Pick)",
+                    "desc": f"{yr} Round {rd} Pick",
                     "value": int(pick_value_base[rd])
                 })
 
@@ -506,7 +526,7 @@ for tp in traded_picks:
     if new_owner in team_picks:
         team_picks[new_owner].append({
             "year": yr, "round": rd, "original_rid": orig_roster,
-            "desc": f"{yr} Rd {rd} via {roster_owner_map.get(orig_roster, 'Team')}",
+            "desc": f"{yr} Round {rd} (via {roster_owner_map.get(orig_roster, 'Team')})",
             "value": int(pick_value_base.get(rd, 200))
         })
 
@@ -608,11 +628,9 @@ for r in rosters:
 
 df_league = pd.DataFrame(league_stats)
 
-# Current Standings calculation
 df_curr_calc = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
 curr_seed_dict = {row["roster_id"]: idx + 1 for idx, row in df_curr_calc.iterrows()}
 
-# Projected Standings calculation
 df_proj_calc = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
 proj_seed_dict = {row["roster_id"]: idx + 1 for idx, row in df_proj_calc.iterrows()}
 
@@ -1229,7 +1247,7 @@ with tab_deepdive:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== TAB 4: PLAYOFFS & TOILET BOWL (FIXED SAFE DICTIONARY LOOKUPS) ====================
+# ==================== TAB 4: PLAYOFFS & TOILET BOWL ====================
 with tab_playoffs:
     st.markdown("### 🏆 Championship Playoffs & 🚽 Toilet Bowl Race")
     st.caption("Official standings sorted by Win-Loss record, then Points For (PF). Seeds 1–6 advance to the playoffs. Seeds 7 & 8 play in the Toilet Bowl for Pick 1.01.")
@@ -1237,13 +1255,7 @@ with tab_playoffs:
     standings_mode = st.radio("Standings View", ["Current Week Standings", "Projected Final Season Standings"], horizontal=True)
     is_proj_mode = "Projected" in standings_mode
 
-    # Sort full df_league directly to guarantee ALL columns exist
-    if is_proj_mode:
-        active_sorted_df = df_league.sort_values(by=["proj_wins", "proj_pf"], ascending=[False, False]).reset_index(drop=True)
-    else:
-        active_sorted_df = df_league.sort_values(by=["wins", "points_for"], ascending=[False, False]).reset_index(drop=True)
-
-    active_standings_list = active_sorted_df.to_dict('records')
+    active_standings_list = df_proj_calc.to_dict('records') if is_proj_mode else df_curr_calc.to_dict('records')
 
     c_playoff, c_toilet = st.columns([1.1, 0.9], gap="medium")
 
@@ -1262,13 +1274,12 @@ with tab_playoffs:
             p_loss = row.get("proj_losses", row.get("losses", 0))
             p_pf = row.get("proj_pf", row.get("points_for", 0.0))
             p_mpf = row.get("proj_max_pf", row.get("max_pf", 0.0))
-            p_seed = row.get("proj_seed", s_num)
             c_odds = row.get("odds_2026", 10.0)
 
             if is_proj_mode:
                 stat_display = f'<div style="font-size: 11px; color: #38bdf8; margin-top: 3px;"><strong>Projected Finish:</strong> {p_wins}W - {p_loss}L • <strong>Proj PF:</strong> {p_pf:.1f} • <strong>Proj Max PF:</strong> {p_mpf:.1f}</div><div style="font-size: 10px; color: #64748b;">(Current Record: {row.get("wins", 0)}W - {row.get("losses", 0)}L | {row.get("points_for", 0.0):.1f} PF)</div>'
             else:
-                stat_display = f'<div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><strong>Current Record:</strong> {row.get("wins", 0)}W - {row.get("losses", 0)}L • <strong>Total PF:</strong> {row.get("points_for", 0.0):.1f} • <strong>Max PF:</strong> {row.get("max_pf", 0.0):.1f}</div><div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L | Proj Seed #{p_seed})</div>'
+                stat_display = f'<div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><strong>Current Record:</strong> {row.get("wins", 0)}W - {row.get("losses", 0)}L • <strong>Total PF:</strong> {row.get("points_for", 0.0):.1f} • <strong>Max PF:</strong> {row.get("max_pf", 0.0):.1f}</div><div style="font-size: 10px; color: #64748b;">(Simulated Pace: Proj {p_wins}W - {p_loss}L)</div>'
 
             card_row = (
                 f'<div class="insight-card" style="{highlight_border}; margin-bottom: 8px; padding: 10px 14px;">'
@@ -1296,7 +1307,6 @@ with tab_playoffs:
 
         mpf_key = "proj_max_pf" if is_proj_mode else "max_pf"
         
-        # Lower Max PF between Seeds 7 & 8 gets Pick 1.01
         if team_7.get(mpf_key, 0) < team_8.get(mpf_key, 0):
             pick_101_orig_team = team_7
             pick_102_orig_team = team_8
@@ -1351,7 +1361,6 @@ with tab_playoffs:
         board_header = "🎯 Projected 2027 Round 1 Draft Order (End-of-Season Simulation)" if is_proj_mode else "🎯 Projected 2027 Round 1 Draft Order (Current Standings)"
         st.markdown(f'<div class="section-header">{board_header}</div>', unsafe_allow_html=True)
         
-        # Sort playoff teams (seeds 1 to 6) in reverse Max PF order
         playoff_six_sorted = sorted(active_standings_list[:6], key=lambda x: x.get(mpf_key, 0.0))
         
         full_proj_order = [
@@ -1384,113 +1393,174 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER ====================
+# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (POLISHED EXECUTIVE PODS) ====================
 with tab_trades:
-    st.markdown("### 📜 Dynasty Trade Analyzer & Positional Shift Simulator")
-    st.caption("Construct multi-asset trades with players and 2027–2029 draft picks. Run the simulator to calculate your trade grade and positional rank shifts.")
+    st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
+    st.caption("Construct multi-asset trade proposals. Analyze immediate value differentials, championship timeline sync, and positional room shifts.")
 
-    ca, cb = st.columns(2, gap="medium")
-    with ca:
-        ta = st.selectbox("Franchise A (Your Team)", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a")
+    # Side-by-Side Trade Pods
+    c_pod_a, c_pod_b = st.columns(2, gap="medium")
+
+    with c_pod_a:
+        st.markdown("""
+        <div style="border-top: 3px solid #38bdf8; padding-top: 6px; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px;">FRANCHISE A (YOUR SIDE)</span>
+        </div>
+        """, unsafe_allow_html=True)
+        ta = st.selectbox("Select Franchise A", team_names, index=team_names.index(selected_team_name) if selected_team_name in team_names else 0, key="t_a", label_visibility="collapsed")
+        
         r_a = next(r for r in rosters if roster_owner_map[r["roster_id"]] == ta)
         p_a = r_a.get("players", []) or []
-        opts_a = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')}) - {evaluate_player(p, all_players.get(p, {}))['value']:,} pts": p for p in p_a}
-        sel_pa = st.multiselect(f"Players sent by {ta}", list(opts_a.keys()), key="spa")
-        
         my_picks_a = team_picks.get(r_a["roster_id"], [])
-        opts_pka = {f"{p['desc']} ({p['value']:,} pts)": p for p in my_picks_a}
-        sel_pka = st.multiselect(f"Draft Picks sent by {ta}", list(opts_pka.keys()), key="spka")
 
-    with cb:
-        tb = st.selectbox("Franchise B (Trade Partner)", [t for t in team_names if t != ta], index=0, key="t_b")
+        # Build clean combined asset catalog
+        asset_options_a = {}
+        for p in p_a:
+            p_obj = evaluate_player(p, all_players.get(p, {}))
+            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            asset_options_a[label] = ("PLAYER", p, p_obj["value"], p_obj)
+
+        for pk in my_picks_a:
+            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
+            asset_options_a[label] = ("PICK", pk, pk["value"], None)
+
+        selected_assets_a = st.multiselect("Select Players & Picks sent by " + ta, list(asset_options_a.keys()), key="sel_assets_a", placeholder="Choose players & picks to trade...")
+        val_a = sum(asset_options_a[item][2] for item in selected_assets_a)
+
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+            <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">TOTAL OUTGOING VALUE</span>
+            <span style="font-size: 17px; font-weight: 800; color: #38bdf8;">{val_a:,} pts</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c_pod_b:
+        st.markdown("""
+        <div style="border-top: 3px solid #c084fc; padding-top: 6px; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #c084fc; letter-spacing: 0.5px;">FRANCHISE B (PARTNER SIDE)</span>
+        </div>
+        """, unsafe_allow_html=True)
+        tb = st.selectbox("Select Franchise B", [t for t in team_names if t != ta], index=0, key="t_b", label_visibility="collapsed")
+        
         r_b = next(r for r in rosters if roster_owner_map[r["roster_id"]] == tb)
         p_b = r_b.get("players", []) or []
-        opts_b = {f"{all_players.get(p, {}).get('full_name', p)} ({all_players.get(p, {}).get('position', '-')}) - {evaluate_player(p, all_players.get(p, {}))['value']:,} pts": p for p in p_b}
-        sel_pb = st.multiselect(f"Players sent by {tb}", list(opts_b.keys()), key="spb")
-        
         my_picks_b = team_picks.get(r_b["roster_id"], [])
-        opts_pkb = {f"{p['desc']} ({p['value']:,} pts)": p for p in my_picks_b}
-        sel_pkb = st.multiselect(f"Draft Picks sent by {tb}", list(opts_pkb.keys()), key="spkb")
 
-    val_a = sum(evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))["value"] for p in sel_pa) + sum(opts_pka[p]["value"] for p in sel_pka)
-    val_b = sum(evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))["value"] for p in sel_pb) + sum(opts_pkb[p]["value"] for p in sel_pkb)
+        asset_options_b = {}
+        for p in p_b:
+            p_obj = evaluate_player(p, all_players.get(p, {}))
+            label = f"👤 {p_obj['name']} ({p_obj['pos']} - {p_obj['team']}) • {p_obj['value']:,} pts"
+            asset_options_b[label] = ("PLAYER", p, p_obj["value"], p_obj)
 
-    st.markdown("---")
-    res1, res2, res3 = st.columns(3)
-    res1.metric(f"{ta} Gives", f"{val_a:,} pts")
-    res2.metric(f"{tb} Gives", f"{val_b:,} pts")
-    delta = val_b - val_a
-    res3.metric("Net Value For " + ta, f"{abs(delta):,} pts", f"{'Surplus (+)' if delta >= 0 else 'Deficit (-)'}")
+        for pk in my_picks_b:
+            label = f"🎯 {pk['desc']} • {pk['value']:,} pts"
+            asset_options_b[label] = ("PICK", pk, pk["value"], None)
 
-    st.markdown("")
-    analyze_btn = st.button("⚡ Analyze Trade Impact & Positional Shifts", use_container_width=True, type="primary")
+        selected_assets_b = st.multiselect("Select Players & Picks sent by " + tb, list(asset_options_b.keys()), key="sel_assets_b", placeholder="Choose players & picks to receive...")
+        val_b = sum(asset_options_b[item][2] for item in selected_assets_b)
+
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0c1018; border: 1px solid #1e2638; border-radius: 8px; padding: 10px 14px; margin-top: 10px;">
+            <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">TOTAL INCOMING VALUE</span>
+            <span style="font-size: 17px; font-weight: 800; color: #c084fc;">{val_b:,} pts</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Visual Equity Bar (Apple / Linear Progress Meter)
+    st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+    total_trade_volume = max(val_a + val_b, 1)
+    pct_a = int((val_a / total_trade_volume) * 100)
+    pct_b = 100 - pct_a
+
+    if val_a > 0 or val_b > 0:
+        delta = val_b - val_a
+        delta_color = "#4ade80" if delta >= 0 else "#f43f5e"
+        status_label = f"+{delta:,} pts Surplus (Favors {ta})" if delta >= 0 else f"{delta:,} pts Deficit (Favors {tb})"
+
+        st.markdown(f"""
+        <div style="background: #11151f; border: 1px solid #1c2438; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
+                <span style="color: #38bdf8;">{ta}: {val_a:,} pts ({pct_a}%)</span>
+                <span style="color: {delta_color}; font-size: 13px;">{status_label}</span>
+                <span style="color: #c084fc;">{tb}: {val_b:,} pts ({pct_b}%)</span>
+            </div>
+            <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #1a2233;">
+                <div style="width: {pct_a}%; background: #38bdf8;"></div>
+                <div style="width: {pct_b}%; background: #c084fc;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    analyze_btn = st.button("⚡ Simulate Trade Impact & Positional Shifts", use_container_width=True, type="primary")
 
     if analyze_btn:
         if val_a == 0 and val_b == 0:
-            st.warning("Please select at least one player or draft pick on each side to analyze.")
+            st.warning("Please choose at least one asset to evaluate.")
         else:
             ratio = (val_b / max(val_a, 1))
             if ratio >= 1.25:
                 grade, grade_color = "A+", "#4ade80"
-                verdict = "Smash Accept / Overwhelming Value Win"
+                verdict = "Smash Accept / Massive Franchise Upgrade"
             elif ratio >= 1.08:
                 grade, grade_color = "A", "#4ade80"
-                verdict = "Strong Value Win for Your Franchise"
+                verdict = "Favorable Value Win for Your Franchise"
             elif ratio >= 0.94:
                 grade, grade_color = "B+", "#38bdf8"
-                verdict = "Fair & Balanced Deal"
+                verdict = "Fair & Equitable Dynasty Deal"
             elif ratio >= 0.80:
                 grade, grade_color = "C", "#fbbf24"
-                verdict = "Slight Loss in Value / Overpay"
+                verdict = "Slight Value Loss / Roster Overpay"
             elif ratio >= 0.65:
                 grade, grade_color = "D", "#f97316"
                 verdict = "Significant Value Loss"
             else:
                 grade, grade_color = "F", "#f43f5e"
-                verdict = "Horrendous Trade / Do Not Accept"
+                verdict = "Negative Trade / Do Not Accept"
 
             st.markdown(f"""
             <div class="metric-card" style="border-left: 4px solid {grade_color}; margin-top: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">TRADE GRADE FOR {ta.upper()}</div>
-                        <div style="font-size: 32px; font-weight: 800; color: {grade_color}; margin: 2px 0;">{grade}</div>
+                        <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">OFFICIAL TRADE GRADE FOR {ta.upper()}</div>
+                        <div style="font-size: 34px; font-weight: 800; color: {grade_color}; margin: 2px 0;">{grade}</div>
                         <div style="font-size: 13px; font-weight: 700; color: #f1f5f9;">{verdict}</div>
                     </div>
                     <div style="text-align: right; max-width: 450px;">
-                        <div style="font-size: 12px; color: #cbd5e1;">
-                            {'This trade gains net dynasty value and improves your asset equity.' if delta >= 0 else 'You are giving away more overall value than you are receiving in return.'}
+                        <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6;">
+                            {'This deal captures net positive dynasty equity while improving your asset foundation.' if (val_b >= val_a) else 'You are surrendering more overall value than you are receiving in return. Rebalance by seeking a draft pick upgrade.'}
                         </div>
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("#### 🔄 Projected Positional Rank Shift for " + ta)
+            st.markdown("#### 🔄 Positional Rank Shift Simulation for " + ta)
             
             sim_pos_val = team_positional_values[r_a["roster_id"]].copy()
 
-            for p in sel_pa:
-                p_obj = evaluate_player(opts_a[p], all_players.get(opts_a[p], {}))
-                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
-                if p_cat in sim_pos_val:
-                    sim_pos_val[p_cat] -= p_obj["value"]
-                sim_pos_val["Overall"] -= p_obj["value"]
+            # Subtract outgoing assets
+            for item in selected_assets_a:
+                kind, payload, val, p_obj = asset_options_a[item]
+                if kind == "PLAYER":
+                    p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                    if p_cat in sim_pos_val:
+                        sim_pos_val[p_cat] -= val
+                    sim_pos_val["Overall"] -= val
+                else:
+                    sim_pos_val["Picks"] -= val
+                    sim_pos_val["Overall"] -= val
 
-            for pk in sel_pka:
-                sim_pos_val["Picks"] -= opts_pka[pk]["value"]
-                sim_pos_val["Overall"] -= opts_pka[pk]["value"]
-
-            for p in sel_pb:
-                p_obj = evaluate_player(opts_b[p], all_players.get(opts_b[p], {}))
-                p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
-                if p_cat in sim_pos_val:
-                    sim_pos_val[p_cat] -= p_obj["value"]
-                sim_pos_val["Overall"] -= p_obj["value"]
-
-            for pk in sel_pkb:
-                sim_pos_val["Picks"] += opts_pkb[pk]["value"]
-                sim_pos_val["Overall"] += opts_pkb[pk]["value"]
+            # Add incoming assets
+            for item in selected_assets_b:
+                kind, payload, val, p_obj = asset_options_b[item]
+                if kind == "PLAYER":
+                    p_cat = "DL" if p_obj["pos"] in ["DL", "DE", "DT"] else ("IDP" if p_obj["pos"] in ["LB", "CB", "S", "DB"] else p_obj["pos"])
+                    if p_cat in sim_pos_val:
+                        sim_pos_val[p_cat] += val
+                    sim_pos_val["Overall"] += val
+                else:
+                    sim_pos_val["Picks"] += val
+                    sim_pos_val["Overall"] += val
 
             shift_cols = st.columns(4)
             checked_cats = ["Overall", "QB", "RB", "WR", "TE", "DL", "IDP", "Picks"]
@@ -1504,24 +1574,24 @@ with tab_trades:
 
                 rank_diff = curr_rank - sim_rank
                 if rank_diff > 0:
-                    shift_str = f"▲ Improved by +{rank_diff}"
+                    shift_str = f"▲ +{rank_diff}"
                     shift_color = "#4ade80"
                 elif rank_diff < 0:
-                    shift_str = f"▼ Dropped by {rank_diff}"
+                    shift_str = f"▼ {rank_diff}"
                     shift_color = "#f43f5e"
                 else:
-                    shift_str = "— Unchanged"
+                    shift_str = "—"
                     shift_color = "#94a3b8"
 
                 col_target.markdown(f"""
-                <div class="odds-row" style="padding: 10px; margin-bottom: 8px;">
+                <div class="odds-row" style="padding: 10px 12px; margin-bottom: 8px;">
                     <div>
-                        <div style="color: #94a3b8; font-size: 11px; font-weight: 700;">{c_name} ROOM</div>
+                        <div style="color: #94a3b8; font-size: 10px; font-weight: 800;">{c_name.upper()} ROOM</div>
                         <div style="font-size: 14px; font-weight: 800; color: #f1f5f9;">
                             #{curr_rank} ➔ <span style="color: #38bdf8;">#{sim_rank}</span>
                         </div>
                     </div>
-                    <div style="font-size: 11px; font-weight: 700; color: {shift_color}; text-align: right;">
+                    <div style="font-size: 13px; font-weight: 800; color: {shift_color}; text-align: right;">
                         {shift_str}
                     </div>
                 </div>
