@@ -18,7 +18,6 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
     
-    /* Disable typing into selectboxes unless explicitly a text box */
     div[data-baseweb="select"] input {
         caret-color: transparent !important;
         cursor: pointer !important;
@@ -41,11 +40,6 @@ st.markdown("""
         border-radius: 8px;
         padding: 7px 12px;
         margin-bottom: 5px;
-        transition: background 0.12s ease, border-color 0.12s ease;
-    }
-    .lineup-row:hover {
-        background: #151a26;
-        border-color: #273248;
     }
 
     .pos-slot {
@@ -131,15 +125,18 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
-    /* Streamlit Expander Dark Glass Styling */
     div[data-testid="stExpander"] {
         background: #10141d;
         border: 1px solid #181e2b;
         border-radius: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
     }
     div[data-testid="stExpander"]:hover {
         border-color: #273248;
+    }
+    div[data-testid="stExpander"] > details > summary {
+        padding: 8px 12px;
+        color: #f1f5f9;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -159,6 +156,17 @@ def get_all_players():
     except Exception:
         return {}
 
+@st.cache_data(ttl=1800)
+def get_season_nfl_stats(season_year=2026):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        r = requests.get(f"{BASE_URL}/stats/nfl/regular/{season_year}", headers=headers, timeout=12)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return {}
+
 @st.cache_data(ttl=300)
 def fetch_league(l_id: str):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -172,18 +180,10 @@ def fetch_league(l_id: str):
         cur_week = state.get("week", 1)
         
         matchups = {}
-        player_points_history = {}
-        for w in range(1, cur_week + 1):
+        for w in range(max(1, cur_week - 2), cur_week + 1):
             m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=6)
-            if m_resp.status_code == 200 and m_resp.json():
-                m_list = m_resp.json()
-                matchups[w] = m_list
-                for m in m_list:
-                    pp = m.get("players_points", {}) or {}
-                    for pid, pts in pp.items():
-                        if pid not in player_points_history:
-                            player_points_history[pid] = []
-                        player_points_history[pid].append(float(pts))
+            if m_resp.status_code == 200:
+                matchups[w] = m_resp.json() or []
 
         trades = []
         tx_resp = requests.get(f"{BASE_URL}/league/{l_id}/transactions/{cur_week}", headers=headers, timeout=6)
@@ -192,12 +192,13 @@ def fetch_league(l_id: str):
                 if tx.get("type") == "trade" and tx.get("status") == "complete":
                     trades.append(tx)
 
-        return league_info, users, rosters, traded_picks, matchups, cur_week, trades, player_points_history
+        return league_info, users, rosters, traded_picks, matchups, cur_week, trades
     except Exception:
-        return None, [], [], [], {}, 1, [], {}
+        return None, [], [], [], {}, 1, []
 
 all_players = get_all_players()
-league_info, users, rosters, traded_picks, matchups, current_week, all_trades, player_pts_hist = fetch_league(league_id)
+nfl_stats_season = get_season_nfl_stats(2026)
+league_info, users, rosters, traded_picks, matchups, current_week, all_trades = fetch_league(league_id)
 
 if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
@@ -227,11 +228,12 @@ def evaluate_player(pid, p_info):
     if not p_info:
         return {
             "pid": str(pid), "value": 100, "redraft_val": 80, "stage": "Prime", "badge": "badge-prime",
-            "action": "HOLD", "act_badge": "badge-hold", "rookie": False, "ppg": 0.0,
+            "action": "HOLD", "act_badge": "badge-hold", "rookie": False, "ppg": 0.0, "gp": 0,
             "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
             "owner": player_owner_map.get(str(pid), "Free Agent"),
             "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
-            "college": "-", "height": "-", "weight": "-", "number": "-", "desc": "Information currently unavailable."
+            "college": "-", "height": "-", "weight": "-", "number": "-",
+            "stat_line": "No stats recorded yet this season.", "desc": "Information currently unavailable."
         }
     
     pos = p_info.get("position", "N/A")
@@ -243,11 +245,56 @@ def evaluate_player(pid, p_info):
     depth_order = p_info.get("depth_chart_order")
     search_rank = p_info.get("search_rank")
 
-    # Real historical PPG in this league
-    history = player_pts_hist.get(str(pid), [])
-    ppg = round(sum(history) / len(history), 1) if history else 0.0
+    # Real Ingested NFL Stats from Sleeper
+    p_stat = nfl_stats_season.get(str(pid), {})
+    gp = int(p_stat.get("gp", 0) or 0)
+    pts_half_ppr = float(p_stat.get("pts_half_ppr", 0.0) or p_stat.get("pts_ppr", 0.0) or 0.0)
+    
+    # Calculate genuine Points Per Game (games active)
+    if gp > 0:
+        ppg = round(pts_half_ppr / gp, 1)
+    else:
+        ppg = 0.0
 
-    # 1. Base Talent Score
+    # Build readable NFL stats string
+    stat_fragments = []
+    if pos == "QB":
+        pass_yd = int(p_stat.get("pass_yd", 0))
+        pass_td = int(p_stat.get("pass_td", 0))
+        pass_int = int(p_stat.get("pass_int", 0))
+        rush_yd = int(p_stat.get("rush_yd", 0))
+        rush_td = int(p_stat.get("rush_td", 0))
+        if pass_yd > 0 or rush_yd > 0:
+            stat_fragments.append(f"{pass_yd} Pass Yds • {pass_td} TD • {pass_int} INT")
+            if rush_yd > 0:
+                stat_fragments.append(f"{rush_yd} Rush Yds • {rush_td} TD")
+    elif pos == "RB":
+        rush_att = int(p_stat.get("rush_att", 0))
+        rush_yd = int(p_stat.get("rush_yd", 0))
+        rush_td = int(p_stat.get("rush_td", 0))
+        rec = int(p_stat.get("rec", 0))
+        rec_yd = int(p_stat.get("rec_yd", 0))
+        if rush_att > 0 or rec > 0:
+            stat_fragments.append(f"{rush_att} Car • {rush_yd} Yds • {rush_td} TD")
+            if rec > 0:
+                stat_fragments.append(f"{rec} Rec • {rec_yd} Yds")
+    elif pos in ["WR", "TE"]:
+        rec = int(p_stat.get("rec", 0))
+        rec_yd = int(p_stat.get("rec_yd", 0))
+        rec_td = int(p_stat.get("rec_td", 0))
+        rec_tgt = int(p_stat.get("rec_tgt", 0))
+        if rec_tgt > 0 or rec > 0:
+            stat_fragments.append(f"{rec}/{rec_tgt} Targets • {rec_yd} Yds • {rec_td} TD")
+    else:  # IDP
+        tkl = int(p_stat.get("idp_tkl", 0) or p_stat.get("tkl", 0))
+        sack = float(p_stat.get("idp_sack", 0) or p_stat.get("sack", 0))
+        tfl = int(p_stat.get("idp_tkl_loss", 0) or p_stat.get("tkl_loss", 0))
+        if tkl > 0 or sack > 0:
+            stat_fragments.append(f"{tkl} Tackles • {sack:.1f} Sacks • {tfl} TFL")
+
+    stat_line = " | ".join(stat_fragments) if stat_fragments else "0 GP (Pending 2026 debut or rotational reserve)"
+
+    # Base Talent Score
     if search_rank and search_rank > 0:
         if search_rank <= 12:
             talent_score = 920 - (search_rank * 8)
@@ -269,7 +316,7 @@ def evaluate_player(pid, p_info):
         else:
             talent_score = 70
 
-    # 2. League Format Position Multiplier
+    # League Format Position Multiplier
     pos_multiplier = 1.0
     if pos == "TE":
         pos_multiplier = 1.28
@@ -285,7 +332,7 @@ def evaluate_player(pid, p_info):
     elif pos in ["CB", "S", "DB"]:
         pos_multiplier = 0.75
 
-    # 3. Dynasty Age Multiplier
+    # Dynasty Age Multiplier
     if pos == "QB":
         if age <= 25:
             stage, badge, age_mult = "Rising", "badge-rising", 1.15
@@ -321,13 +368,9 @@ def evaluate_player(pid, p_info):
         else:
             stage, badge, age_mult = "Descending", "badge-descending", 0.70
 
-    # Dynasty Value (Longevity + Talent)
     dynasty_val = max(int(talent_score * pos_multiplier * age_mult), 25)
-    
-    # Redraft Value (Pure Current Year Win-Now Output)
     redraft_val = max(int(talent_score * pos_multiplier * (1.1 if stage in ["Prime", "Descending"] else 0.9)), 20)
 
-    # Dynamic Action Tags
     if dynasty_val >= 750:
         action, act_badge = "CORNERSTONE", "badge-buy"
     elif stage in ["Descending", "Unc"] and pos in ["RB", "WR"]:
@@ -339,30 +382,29 @@ def evaluate_player(pid, p_info):
     else:
         action, act_badge = "HOLD / DEPTH", "badge-hold"
 
-    # Contextual description
-    desc = f"{p_info.get('full_name')} is a {age}yo {pos} for the {team}. "
+    desc = f"{p_info.get('full_name')} ({age}yo {pos}) for the {team}. "
     if dynasty_val >= 700:
-        desc += "Elite tier centerpiece with game-breaking positional advantage in 8-team formats."
+        desc += "Elite centerpiece offering maximum weekly leverage in 8-team formats."
     elif stage == "Rising":
-        desc += "Ascending young talent with substantial dynasty runway and expanding upside."
+        desc += "Ascending young weapon with high dynasty growth runway."
     elif stage == "Prime":
-        desc += "Peak-window producer currently in their prime championship-winning years."
+        desc += "Peak-window starter actively producing in their championship years."
     elif stage == "Descending":
-        desc += "High immediate win-now scoring power, but nearing the age cliff where trade value will decline."
+        desc += "High immediate weekly scoring output, but entering the veteran age window."
     else:
-        desc += "Veteran contributor with limited multi-year runway; ideal bridge starter for contenders."
+        desc += "Veteran depth asset; suitable bridge starter for contending lineups."
 
     return {
         "pid": str(pid), "value": dynasty_val, "redraft_val": redraft_val,
         "stage": stage, "badge": badge, "action": action, "act_badge": act_badge,
-        "rookie": is_rookie, "ppg": ppg, "age": age, "pos": pos, "team": team,
+        "rookie": is_rookie, "ppg": ppg, "gp": gp, "age": age, "pos": pos, "team": team,
         "owner": owner, "name": p_info.get("full_name") or f"Player {pid}",
         "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg",
         "college": p_info.get("college") or "N/A",
         "height": p_info.get("height") or "-",
         "weight": p_info.get("weight") or "-",
         "number": p_info.get("number") or "-",
-        "desc": desc
+        "stat_line": stat_line, "desc": desc
     }
 
 # ==================== DRAFT PICK INVENTORY & PROJECTIONS ====================
@@ -431,7 +473,6 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    # 3-Year Title Scores
     win_pct = wins / max(wins + losses, 1)
     title_score_2026 = (win_pct * 50.0) + ((fpts / max(current_week, 1)) * 0.5) + (player_val * 0.0008)
     if wins == 0 and current_week >= 2:
@@ -445,7 +486,6 @@ for r in rosters:
     age_factor_2028 = max(0.4, 1.6 - (max(0, t_age - 24.0) * 0.25))
     title_score_2028 = (player_val * age_factor_2028 * 0.01) + (all_future_picks * 0.008)
 
-    # Posture Diagnosis (Competing vs Retooling vs Rebuilding)
     future_picks_count = len(team_picks.get(rid, []))
     if wins >= 2 or (fpts >= 420 and t_age >= 25.0):
         posture = "🔥 Competing (Win-Now)"
@@ -486,10 +526,8 @@ df_league["rank_val"] = df_league["total_value"].rank(ascending=False, method="m
 df_league["rank_age"] = df_league["avg_age"].rank(ascending=True, method="min").astype(int)
 df_league["rank_eff"] = df_league["efficiency"].rank(ascending=False, method="min").astype(int)
 
-# Luck Factor: (Total Points For - Total Points Against) relative to expected wins
 mean_pf = df_league["points_for"].mean()
 mean_pa = df_league["points_against"].mean()
-# If you score more than average but have very high PA, you are unlucky
 df_league["luck_score"] = ((df_league["points_for"] - mean_pf) - (df_league["points_against"] - mean_pa)) / 50.0
 
 df_league["odds_2026"] = ((df_league["score_2026"] / max(df_league["score_2026"].sum(), 1.0)) * 100).round(1)
@@ -862,14 +900,14 @@ with tab_rankings:
     with fa_idp_tab:
         render_fa_grid(fa_pool_all[fa_pool_all["pos"].isin(["LB", "CB", "S", "DB"])].sort_values(by="value", ascending=False))
 
-# ==================== TAB 3: DEEP DIVE (ROSTER EXPLORER & FRANCHISE STRATEGY) ====================
+# ==================== TAB 3: DEEP DIVE (EXPANDABLE LINEUP + AI STRATEGY) ====================
 with tab_deepdive:
     st.markdown(f"### 🔍 Deep Dive: {selected_team_name}")
-    st.caption("Granular player profile evaluation, PPG analysis, redraft vs dynasty valuations, and luck analytics.")
+    st.caption("Click any player to reveal their real-time NFL statistics, 2026 PPG, and valuation comparison.")
 
-    # Top Diagnostic Metrics
+    # Top Diagnostics
     luck_val = my_row["luck_score"]
-    luck_desc = "Unlucky Schedule (High Points Against)" if luck_val < -0.4 else ("Lucky Breaks (Low Points Against)" if luck_val > 0.4 else "Neutral Schedule Luck")
+    luck_desc = "Unlucky Schedule (High PA)" if luck_val < -0.4 else ("Lucky Breaks (Low PA)" if luck_val > 0.4 else "Neutral Schedule Luck")
     luck_color = "#4ade80" if luck_val > 0.4 else ("#f43f5e" if luck_val < -0.4 else "#94a3b8")
 
     d1, d2, d3 = st.columns(3)
@@ -898,21 +936,20 @@ with tab_deepdive:
     </div>
     """, unsafe_allow_html=True)
 
-    # Interactive Click-to-Expand Roster
-    st.markdown("#### 📋 Click Any Player to Expand Detailed Profile & Stats")
+    # Interactive Expandable Lineup View
+    st.markdown("#### 📋 Franchise Roster (Click Row to Expand Real NFL Stats)")
 
     my_player_objects = [evaluate_player(p, all_players.get(p, {})) for p in pids]
-    # Sort by dynasty value descending
     my_player_objects = sorted(my_player_objects, key=lambda x: x["value"], reverse=True)
 
     for p in my_player_objects:
         rookie_badge = "🔰 Rookie" if p["rookie"] else ""
-        header_title = f"{p['name']} ({p['pos']} - {p['team']}) • Age: {p['age']} | Dynasty: {p['value']:,} pts | Redraft: {p['redraft_val']:,} pts {rookie_badge}"
+        header_text = f"[{p['pos']}]  {p['name']} ({p['team']}) • Age: {p['age']} • Dynasty: {p['value']:,} pts | Redraft: {p['redraft_val']:,} pts {rookie_badge}"
         
-        with st.expander(header_title):
-            c_img, c_stats, c_info = st.columns([1, 1.8, 2.2])
+        with st.expander(header_text):
+            col_l, col_m, col_r = st.columns([1, 2, 2.2])
             
-            with c_img:
+            with col_l:
                 st.image(p["img"], width=105)
                 st.markdown(f"""
                 <div style="margin-top: 6px;">
@@ -921,57 +958,69 @@ with tab_deepdive:
                 </div>
                 """, unsafe_allow_html=True)
             
-            with c_stats:
+            with col_m:
+                diff_val = p['value'] - p['redraft_val']
+                diff_color = '#4ade80' if diff_val >= 0 else '#f43f5e'
                 st.markdown(f"""
                 <div style="font-size: 13px; line-height: 1.8;">
-                    <strong>Fantasy 2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p['ppg']} ppg</span><br>
-                    <strong>Dynasty Valuation:</strong> <span style="color: #38bdf8; font-weight: 700;">{p['value']:,} pts</span><br>
-                    <strong>Redraft Valuation:</strong> <span style="color: #94a3b8; font-weight: 700;">{p['redraft_val']:,} pts</span><br>
-                    <strong>Value Variance:</strong> <span style="color: {'#4ade80' if p['value'] >= p['redraft_val'] else '#f43f5e'}; font-weight: 700;">{p['value'] - p['redraft_val']:+d} pts</span>
+                    <strong>2026 PPG:</strong> <span style="color: #fbbf24; font-weight: 700;">{p['ppg']} ppg</span> ({p['gp']} GP)<br>
+                    <strong>Dynasty Index:</strong> <span style="color: #38bdf8; font-weight: 700;">{p['value']:,} pts</span><br>
+                    <strong>Redraft Index:</strong> <span style="color: #94a3b8; font-weight: 700;">{p['redraft_val']:,} pts</span><br>
+                    <strong>Dynasty Premium:</strong> <span style="color: {diff_color}; font-weight: 700;">{diff_val:+d} pts</span>
                 </div>
                 """, unsafe_allow_html=True)
 
-            with c_info:
+            with col_r:
                 st.markdown(f"""
                 <div style="font-size: 13px; line-height: 1.7;">
-                    <strong>Jersey:</strong> #{p['number']} | <strong>College:</strong> {p['college']}<br>
-                    <strong>Height/Weight:</strong> {p['height']} / {p['weight']} lbs<br>
+                    <strong>Real 2026 NFL Stats:</strong><br>
+                    <span style="color: #38bdf8; font-weight: 600;">{p['stat_line']}</span><br>
+                    <div style="margin-top: 6px;">
+                        <strong>Bio:</strong> #{p['number']} | {p['college']} | {p['height']}, {p['weight']} lbs
+                    </div>
                     <p style="color: #cbd5e1; font-size: 12px; margin-top: 6px;">{p['desc']}</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # Franchise Blueprint & Trade Advice
+    # Dynamic AI Franchise Strategy
     st.markdown("---")
-    st.markdown("#### 🎯 Tailored Franchise Strategy & Recommendations")
-    
-    col_strat_1, col_strat_2 = st.columns(2)
-    
-    with col_strat_1:
+    st.markdown("#### 🧠 Tailored Franchise Action Blueprint")
+
+    # Granular analysis for THIS specific team
+    my_te_count = len([x for x in my_player_objects if x["pos"] == "TE"])
+    my_young_studs = [x["name"] for x in my_player_objects if x["value"] >= 650 and x["age"] <= 25]
+    my_veterans = [x["name"] for x in my_player_objects if x["age"] >= 28 and x["value"] >= 200]
+    my_dl_studs = [x["name"] for x in my_player_objects if x["pos"] in ["DL", "DE", "DT"] and x["value"] >= 350]
+
+    strat_col1, strat_col2 = st.columns(2)
+
+    with strat_col1:
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #4ade80;">
-            <div style="color: #4ade80; font-size: 12px; font-weight: 700;">🟢 ASSETS TO BUILD AROUND (KEEP)</div>
-            <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
-                Based on your posture (<strong>{my_row['posture']}</strong>):
+            <div style="color: #4ade80; font-size: 13px; font-weight: 700;">🟢 TAILORED ASSETS TO KEEP ({selected_team_name})</div>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                Franchise Cornerstones to Build Around:
             </div>
-            <ul style="font-size: 12px; color: #cbd5e1; margin-top: 4px; padding-left: 18px;">
-                <li><strong>All Elite TEs under 28:</strong> In a 2TE league with +0.25 TEP, positional scarcity is immense. Never sell at a discount.</li>
-                <li><strong>Rising Under-24 Talents:</strong> Keep young studs on your active lineup and taxi squad.</li>
-                <li><strong>Future 1st-Round Capital:</strong> Keep your 2027 and 2028 1st round picks unless buying a top-10 overall player.</li>
+            <ul style="font-size: 12px; color: #f1f5f9; margin-top: 6px; padding-left: 18px;">
+                <li><strong>Core Young Studs:</strong> {', '.join(my_young_studs[:5]) if my_young_studs else 'Focus on acquiring top 2027 draft picks to find elite youth.'}</li>
+                <li><strong>TE Premium Assets:</strong> You roster <strong>{my_te_count} tight ends</strong>. In 2TE (+0.25 TEP), never sell starting-caliber TEs for generic flex pieces.</li>
+                <li><strong>Pass Rush Spikes:</strong> {', '.join(my_dl_studs[:3]) if my_dl_studs else 'Target high-sack edge rushers on the trade block.'}</li>
+                <li><strong>Draft Inventory:</strong> You control <strong>{picks_owned_count} picks</strong>. Lock in your 2027 1st rounders.</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
 
-    with col_strat_2:
+    with strat_col2:
         st.markdown(f"""
         <div class="insight-card" style="border-left: 3px solid #f43f5e;">
-            <div style="color: #f43f5e; font-size: 12px; font-weight: 700;">🔴 ASSETS TO TRADE AWAY (SELL OR PIVOT)</div>
-            <div style="font-size: 12px; color: #f1f5f9; margin-top: 4px;">
-                Optimal pieces to cash in:
+            <div style="color: #f43f5e; font-size: 13px; font-weight: 700;">🔴 SPECIFIC TRADE TARGETS & LIQUIDATIONS</div>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                Personalized Trade Plan for Your Roster:
             </div>
-            <ul style="font-size: 12px; color: #cbd5e1; margin-top: 4px; padding-left: 18px;">
-                <li><strong>Running Backs 27+:</strong> Running backs lose trade liquidity quickly. Send them to win-now contenders for future picks.</li>
-                <li><strong>Backup QBs:</strong> In 1QB formats, backup quarterbacks possess minimal starting value. Package them for flex upgrades.</li>
-                <li><strong>Non-Sack IDP Pieces:</strong> Upgrade streamable DBs into high-ceiling DL pass rushers.</li>
+            <ul style="font-size: 12px; color: #f1f5f9; margin-top: 6px; padding-left: 18px;">
+                <li><strong>Aging Veteran Sell Candidates:</strong> {', '.join(my_veterans[:4]) if my_veterans else 'Your roster is already very young; no urgent aging liquidations required.'}</li>
+                <li><strong>Capital Strategy:</strong> {'Package 2027/2028 2nd-round picks to buy a win-now WR upgrade.' if 'Competing' in my_row['posture'] else 'Sell any remaining veterans for 2027 1st round picks to optimize your toilet bowl pick.'}</li>
+                <li><strong>1QB Market Inefficiency:</strong> Keep at most 2 quarterbacks on your active roster; trade surplus QBs for draft picks.</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
