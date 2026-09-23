@@ -345,19 +345,25 @@ def fetch_league(l_id: str):
         state = requests.get(f"{BASE_URL}/state/nfl", headers=headers, timeout=10).json() or {}
         cur_week = state.get("week", 1)
         
+        # Robust Matchup Fetcher: check current week, fallback backwards if empty
         matchups = {}
-        for w in range(max(1, cur_week - 2), cur_week + 1):
+        active_week = cur_week
+        for w in range(cur_week, 0, -1):
             m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=6)
             if m_resp.status_code == 200:
-                matchups[w] = m_resp.json() or []
+                data = m_resp.json() or []
+                if data:
+                    matchups[w] = data
+                    active_week = w
+                    break
 
-        return league_info, users, rosters, traded_picks, matchups, cur_week
+        return league_info, users, rosters, traded_picks, matchups, active_week
     except Exception:
         return None, [], [], [], {}, 1
 
 all_players = get_all_players()
 nfl_stats_season = get_season_nfl_stats(2026)
-league_info, users, rosters, traded_picks, matchups_data, current_week = fetch_league(league_id)
+league_info, users, rosters, traded_picks, matchups_data, active_matchup_week = fetch_league(league_id)
 
 if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
@@ -657,7 +663,7 @@ for r in rosters:
     losses = r.get("settings", {}).get("losses", 0)
     fpts_against = r.get("settings", {}).get("fpts_against", 0) + (r.get("settings", {}).get("fpts_against_decimal", 0) / 100)
 
-    weeks_played = max(current_week, 1)
+    weeks_played = max(active_matchup_week, 1)
     ppg_scoring = fpts / weeks_played
     max_ppg = ppts / weeks_played
     total_season_weeks = 14
@@ -769,7 +775,7 @@ def get_ordinal(n):
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
     return f"{n}{suffix}"
 
-# ==================== EXECUTIVE LIQUID GLASS HEADER ====================
+# ==================== HEADER & LIQUID GLASS NAVIGATION BAR ====================
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
 
 st.markdown(f"""
@@ -1130,16 +1136,15 @@ with tab_deepdive:
         st.markdown(render_pos_rank_item("Secondary & LBs (IDP)", "IDP"), unsafe_allow_html=True)
         st.markdown(render_pos_rank_item("Draft Capital (2027-2029)", "Picks"), unsafe_allow_html=True)
 
-# ==================== TAB 4: LIVE MATCHUPS ====================
+# ==================== TAB 4: LIVE MATCHUPS (ROBUST FALLBACK) ====================
 with tab_matchups:
-    st.markdown(f"### ⚔️ Live Head-to-Head Matchups (Week {current_week})")
+    st.markdown(f"### ⚔️ Live Head-to-Head Matchups (Week {active_matchup_week})")
     st.caption("Real-time scoring battle between league opponents for the active NFL week.")
 
-    cur_matchups = matchups_data.get(current_week, [])
+    cur_matchups = matchups_data.get(active_matchup_week, [])
     if not cur_matchups:
-        st.info(f"No matchup data currently recorded for Week {current_week}.")
+        st.info(f"No matchup data currently recorded for Week {active_matchup_week}.")
     else:
-        # Group matchups by match_id
         matchup_pairs = {}
         for m in cur_matchups:
             mid = m.get("match_id")
@@ -1331,7 +1336,7 @@ with tab_playoffs:
             )
             st.markdown(order_row, unsafe_allow_html=True)
 
-# ==================== TAB 5: TRADES & AI IMPACT ANALYZER (SORTED PLAYERS) ====================
+# ==================== TAB 6: TRADES & AI IMPACT ANALYZER ====================
 with tab_trades:
     st.markdown("### ⚖️ Dynasty Trade Architect & Positional Shift Simulator")
     st.caption("Construct multi-asset trade proposals. Select players and draft picks independently to evaluate equity.")
@@ -1351,7 +1356,6 @@ with tab_trades:
         p_a = r_a.get("players", []) or []
         my_picks_a = team_picks.get(r_a["roster_id"], [])
 
-        # Evaluate and sort players by value descending
         evaluated_players_a = []
         for p in p_a:
             p_obj = evaluate_player(p, all_players.get(p, {}))
