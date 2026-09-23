@@ -68,61 +68,62 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 BASE_URL = "https://api.sleeper.app/v1"
-DEFAULT_LEAGUE_ID = "1312141103282245632"
 
-# ==================== DATA LOADER ====================
+# Sidebar Configuration for League ID
+st.sidebar.title("⚙️ League Settings")
+league_id = st.sidebar.text_input("Sleeper League ID", value="1312141103282245632")
+
 @st.cache_data(ttl=86400)
 def get_all_players():
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        r = requests.get(f"{BASE_URL}/players/nfl", headers=headers, timeout=20)
+        r = requests.get(f"{BASE_URL}/players/nfl", headers=headers, timeout=15)
         return r.json() if r.status_code == 200 else {}
     except Exception:
         return {}
 
 @st.cache_data(ttl=300)
-def fetch_league(league_id: str):
+def fetch_league(l_id: str):
     headers = {"User-Agent": "Mozilla/5.0"}
-    s = requests.Session()
-    s.headers.update(headers)
-    
-    l_resp = s.get(f"{BASE_URL}/league/{league_id}", timeout=10)
-    if l_resp.status_code != 200:
+    try:
+        l_resp = requests.get(f"{BASE_URL}/league/{l_id}", headers=headers, timeout=10)
+        if l_resp.status_code != 200 or not l_resp.json():
+            return None, [], [], [], {}, 1, []
+        
+        league_info = l_resp.json()
+        users = requests.get(f"{BASE_URL}/league/{l_id}/users", headers=headers, timeout=10).json() or []
+        rosters = requests.get(f"{BASE_URL}/league/{l_id}/rosters", headers=headers, timeout=10).json() or []
+        traded_picks = requests.get(f"{BASE_URL}/league/{l_id}/traded_picks", headers=headers, timeout=10).json() or []
+        
+        state = requests.get(f"{BASE_URL}/state/nfl", headers=headers, timeout=10).json() or {}
+        cur_week = state.get("week", 1)
+        
+        matchups = {}
+        for w in range(max(1, cur_week - 2), cur_week + 1):
+            m_resp = requests.get(f"{BASE_URL}/league/{l_id}/matchups/{w}", headers=headers, timeout=6)
+            if m_resp.status_code == 200:
+                matchups[w] = m_resp.json() or []
+
+        trades = []
+        tx_resp = requests.get(f"{BASE_URL}/league/{l_id}/transactions/{cur_week}", headers=headers, timeout=6)
+        if tx_resp.status_code == 200:
+            for tx in tx_resp.json() or []:
+                if tx.get("type") == "trade" and tx.get("status") == "complete":
+                    trades.append(tx)
+
+        return league_info, users, rosters, traded_picks, matchups, cur_week, trades
+    except Exception as e:
         return None, [], [], [], {}, 1, []
-    
-    league_info = l_resp.json()
-    users = s.get(f"{BASE_URL}/league/{league_id}/users", timeout=10).json() or []
-    rosters = s.get(f"{BASE_URL}/league/{league_id}/rosters", timeout=10).json() or []
-    traded_picks = s.get(f"{BASE_URL}/league/{league_id}/traded_picks", timeout=10).json() or []
-    
-    # NFL State
-    state = s.get(f"{BASE_URL}/state/nfl", timeout=10).json() or {}
-    cur_week = state.get("week", 1)
-    
-    # Only fetch current week + previous 2 weeks to keep response times fast
-    matchups = {}
-    for w in range(max(1, cur_week - 2), cur_week + 1):
-        m = s.get(f"{BASE_URL}/league/{league_id}/matchups/{w}", timeout=6).json() or []
-        matchups[w] = m
 
-    # Recent completed transactions
-    trades = []
-    tx_data = s.get(f"{BASE_URL}/league/{league_id}/transactions/{cur_week}", timeout=6).json() or []
-    for tx in tx_data:
-        if tx.get("type") == "trade" and tx.get("status") == "complete":
-            trades.append(tx)
-
-    return league_info, users, rosters, traded_picks, matchups, cur_week, trades
-
-with st.spinner("Connecting to Sleeper & Initializing Custom Scoring..."):
-    all_players = get_all_players()
-    league_info, users, rosters, traded_picks, matchups, current_week, all_trades = fetch_league(DEFAULT_LEAGUE_ID)
+all_players = get_all_players()
+league_info, users, rosters, traded_picks, matchups, current_week, all_trades = fetch_league(league_id)
 
 if not league_info or not rosters:
-    st.error("⚠️ Could not load Sleeper league. Please check connection or League ID.")
+    st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
+    st.info("💡 **How to check:** Open Sleeper on your phone or browser, go to your league settings (gear icon), scroll to the very bottom, and verify the numeric **League ID**. You can enter it in the left sidebar.")
     st.stop()
 
-# Build mapping
+# Mapping Users to Rosters
 user_map = {
     u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
     for u in users
@@ -133,7 +134,6 @@ roster_owner_map = {
 }
 
 # ==================== VALUATION ENGINE ====================
-# 8-Team | 1QB | 2TE (+0.25 TEP) | 4 Flex | High-Impact IDP
 def evaluate_player(pid, p_info):
     if not p_info:
         return {"value": 20, "stage": "Prime", "badge": "badge-prime", "action": "HOLD", "act_badge": "badge-hold", "rookie": False, "age": 25, "pos": "FLEX", "name": f"Player {pid}"}
@@ -175,11 +175,11 @@ def evaluate_player(pid, p_info):
         "age": age, "pos": pos, "name": p_info.get("full_name") or f"Player {pid}"
     }
 
-# ==================== HEADER & SELECTOR ====================
+# ==================== HEADER & TEAM SELECTOR ====================
 h1, h2 = st.columns([3, 1])
 with h1:
-    st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty League')}")
-    st.caption(f"8 Teams • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Capital")
+    st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty Hub')}")
+    st.caption(f"8 Teams • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks")
 
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
 with h2:
@@ -188,7 +188,6 @@ with h2:
 selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] == selected_team_name)
 selected_rid = selected_roster["roster_id"]
 
-# Navigation Tabs
 tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
     "👤 Roster & Value",
     "⚔️ Matchup Outlook",
@@ -214,7 +213,7 @@ with tab_overview:
     <div class="glass-card">
         <div style="color: #94a3b8; font-size: 13px;">FRANCHISE VALUE</div>
         <div style="font-size: 26px; font-weight: 700; color: #38bdf8;">{total_val:,} pts</div>
-        <div style="font-size: 12px; color: #4ade80;">Dynasty Power Index</div>
+        <div style="font-size: 12px; color: #4ade80;">Dynasty Power Score</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -222,7 +221,7 @@ with tab_overview:
     <div class="glass-card">
         <div style="color: #94a3b8; font-size: 13px;">ROSTER AVG AGE</div>
         <div style="font-size: 26px; font-weight: 700; color: #f8fafc;">{avg_age:.1f} yrs</div>
-        <div style="font-size: 12px; color: #818cf8;">{"Youth Foundation" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Window"}</div>
+        <div style="font-size: 12px; color: #818cf8;">{"Youth Heavy" if avg_age < 25.5 else "Contending Core" if avg_age <= 27.5 else "Veteran Core"}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -324,13 +323,13 @@ with tab_blueprint:
 
     if avg_age < 24.8:
         window = "2027 – 2030 (Ascending Powerhouse)"
-        strategy = "Stockpile 2027/2028 1st round draft picks. Do not trade youth for veterans."
+        strategy = "Stockpile 2027/2028 1st round draft picks. Do not trade away youth for short-term fixes."
     elif avg_age <= 26.8:
         window = "2026 – 2028 (Apex Championship Window)"
         strategy = "Go all-in. Trade future 2nd/3rd round picks to buy top tight ends or edge rushers."
     else:
         window = "2026 (Closing Window - Must Retool Soon)"
-        strategy = "Aggressively trade older players past age 28 to contenders for draft capital."
+        strategy = "Aggressively trade older players past age 28 to contenders for 2027–2029 draft capital."
 
     st.markdown(f"""
     <div class="glass-card">
