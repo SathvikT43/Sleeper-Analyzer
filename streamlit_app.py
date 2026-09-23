@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== MACOS LIQUID GLASS & TAB SEGMENTED BAR CSS ====================
+# ==================== MACOS LIQUID GLASS & CLEAN TABS CSS ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -36,7 +36,7 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* Floating Frosted Glass Tab Bar (Segmented Control) */
+    /* Floating Frosted Glass Tab Bar (Clean Focus Rings) */
     div.stTabs {
         background: rgba(255, 255, 255, 0.02);
         backdrop-filter: blur(24px);
@@ -63,6 +63,8 @@ st.markdown("""
         padding: 8px 16px;
         transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
     }
 
     div.stTabs [data-baseweb="tab"]:hover {
@@ -70,11 +72,19 @@ st.markdown("""
         background-color: rgba(255, 255, 255, 0.04);
     }
 
+    div.stTabs [data-baseweb="tab"]:focus,
+    div.stTabs [data-baseweb="tab"]:active,
+    div.stTabs [aria-selected="true"]:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
     div.stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
         color: #38bdf8 !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
-        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15);
+        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15) !important;
+        outline: none !important;
     }
 
     /* Liquid Glass Card Effect */
@@ -559,7 +569,7 @@ for r in rosters:
         for rd in [1, 2, 3]:
             traded = False
             for tp in traded_picks:
-                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id") == rid:
+                if str(tp.get("season")) == str(yr) and tp.get("round") == rd and tp.get("roster_id"] == rid:
                     traded = True
                     break
             if not traded:
@@ -799,8 +809,6 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
-    total_games = my_row['wins'] + my_row['losses']
-    win_pct_display = my_row['wins'] / total_games if total_games > 0 else 0.0
     m4.markdown(f"""
     <div class="metric-card">
         <div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">RECORD & STANDINGS</div>
