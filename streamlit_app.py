@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 import requests
-import plotly.express as px
 
 st.set_page_config(
-    page_title="Dynasty Hub & Franchise Architect", 
+    page_title="Dynasty Hub & Lineup Architect", 
     page_icon="⚡", 
     layout="wide", 
     initial_sidebar_state="expanded"
@@ -30,26 +29,53 @@ st.markdown("""
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
     }
     
-    .glass-card-interactive {
+    .lineup-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.07);
         border-radius: 14px;
-        padding: 12px 16px;
+        padding: 10px 14px;
         margin-bottom: 8px;
+        transition: all 0.2s ease-in-out;
     }
-    .glass-card-interactive:hover {
+    .lineup-row:hover {
         background: rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.16);
     }
 
+    .pos-slot {
+        width: 48px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #94a3b8;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 5px 0;
+        margin-right: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .player-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #1e293b;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        margin-right: 12px;
+    }
+
     .badge {
-        padding: 3px 8px;
-        border-radius: 10px;
-        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 8px;
+        font-size: 10px;
         font-weight: 700;
         display: inline-block;
-        margin-right: 5px;
+        margin-right: 4px;
     }
     .badge-rookie { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
     .badge-rising { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid #4ade80; }
@@ -60,17 +86,13 @@ st.markdown("""
     .badge-buy { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
     .badge-sell { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
     .badge-hold { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
-
-    .player-title { font-size: 15px; font-weight: 600; color: #f8fafc; }
-    .player-sub { font-size: 12px; color: #94a3b8; }
-    .player-val { font-size: 18px; font-weight: 700; color: #38bdf8; }
 </style>
 """, unsafe_allow_html=True)
 
 BASE_URL = "https://api.sleeper.app/v1"
 PERMANENT_LEAGUE_ID = "1312141303219249152"
 
-# Optional sidebar override if you ever want to analyze another league
+# League selector / override in sidebar
 st.sidebar.title("⚡ League Controls")
 league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
 
@@ -78,7 +100,7 @@ league_id = st.sidebar.text_input("Active League ID", value=PERMANENT_LEAGUE_ID)
 def get_all_players():
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        r = requests.get(f"{BASE_URL}/players/nfl", headers=headers, timeout=15)
+        r = requests.get(f"{BASE_URL}/players/nfl", headers=headers, timeout=20)
         return r.json() if r.status_code == 200 else {}
     except Exception:
         return {}
@@ -87,11 +109,7 @@ def get_all_players():
 def fetch_league(l_id: str):
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        l_resp = requests.get(f"{BASE_URL}/league/{l_id}", headers=headers, timeout=10)
-        if l_resp.status_code != 200 or not l_resp.json():
-            return None, [], [], [], {}, 1, []
-        
-        league_info = l_resp.json()
+        league_info = requests.get(f"{BASE_URL}/league/{l_id}", headers=headers, timeout=10).json()
         users = requests.get(f"{BASE_URL}/league/{l_id}/users", headers=headers, timeout=10).json() or []
         rosters = requests.get(f"{BASE_URL}/league/{l_id}/rosters", headers=headers, timeout=10).json() or []
         traded_picks = requests.get(f"{BASE_URL}/league/{l_id}/traded_picks", headers=headers, timeout=10).json() or []
@@ -123,7 +141,7 @@ if not league_info or not rosters:
     st.error(f"⚠️ Could not load Sleeper league for ID: `{league_id}`.")
     st.stop()
 
-# Mapping Users to Rosters
+# Maps
 user_map = {
     u["user_id"]: u.get("metadata", {}).get("team_name") or u.get("display_name", f"User {u['user_id']}")
     for u in users
@@ -136,12 +154,18 @@ roster_owner_map = {
 # ==================== VALUATION ENGINE ====================
 def evaluate_player(pid, p_info):
     if not p_info:
-        return {"value": 20, "stage": "Prime", "badge": "badge-prime", "action": "HOLD", "act_badge": "badge-hold", "rookie": False, "age": 25, "pos": "FLEX", "name": f"Player {pid}"}
+        return {
+            "value": 20, "stage": "Prime", "badge": "badge-prime",
+            "action": "HOLD", "act_badge": "badge-hold", "rookie": False,
+            "age": 25, "pos": "FLEX", "name": f"Player {pid}", "team": "FA",
+            "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
+        }
     
     pos = p_info.get("position", "N/A")
     age = p_info.get("age") or 25
     exp = p_info.get("years_exp") or 0
     is_rookie = exp == 0
+    team = p_info.get("team") or "FA"
 
     base_scores = {
         "QB": 50, "RB": 65, "WR": 75, "TE": 80,
@@ -172,14 +196,16 @@ def evaluate_player(pid, p_info):
     return {
         "value": calc_val, "stage": stage, "badge": badge,
         "action": action, "act_badge": act_badge, "rookie": is_rookie,
-        "age": age, "pos": pos, "name": p_info.get("full_name") or f"Player {pid}"
+        "age": age, "pos": pos, "team": team,
+        "name": p_info.get("full_name") or f"Player {pid}",
+        "img": f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
     }
 
 # ==================== HEADER & TEAM SELECTOR ====================
 h1, h2 = st.columns([3, 1])
 with h1:
     st.markdown(f"## ⚡ {league_info.get('name', 'Dynasty Hub')}")
-    st.caption(f"8 Teams • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Capital")
+    st.caption("8 Teams • 1QB • 2TE (+0.25 TEP) • 4 Flex • Big-Play IDP • 2027–2029 Draft Picks")
 
 team_names = [roster_owner_map[r["roster_id"]] for r in rosters]
 with h2:
@@ -189,14 +215,14 @@ selected_roster = next(r for r in rosters if roster_owner_map[r["roster_id"]] ==
 selected_rid = selected_roster["roster_id"]
 
 tab_overview, tab_matchup, tab_blueprint, tab_playoffs, tab_trades = st.tabs([
-    "👤 Roster & Value",
+    "👤 Roster & Lineup",
     "⚔️ Matchup Outlook",
     "🔮 Future & Prime Years",
     "🎲 Playoffs & Toilet Bowl",
     "📜 Trades & Calculator"
 ])
 
-# ==================== TAB 1: ROSTER & VALUE ====================
+# ==================== TAB 1: ROSTER & LINEUP ====================
 with tab_overview:
     pids = selected_roster.get("players", []) or []
     starters = selected_roster.get("starters", []) or []
@@ -213,7 +239,7 @@ with tab_overview:
     <div class="glass-card">
         <div style="color: #94a3b8; font-size: 13px;">FRANCHISE VALUE</div>
         <div style="font-size: 26px; font-weight: 700; color: #38bdf8;">{total_val:,} pts</div>
-        <div style="font-size: 12px; color: #4ade80;">Dynasty Power Score</div>
+        <div style="font-size: 12px; color: #4ade80;">Dynasty Power Index</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -244,46 +270,59 @@ with tab_overview:
     </div>
     """, unsafe_allow_html=True)
 
-    def show_players(title, id_list):
-        st.markdown(f"#### {title} ({len(id_list)})")
-        if not id_list:
-            st.caption("None assigned.")
+    # Clean Lineup Renderer without Markdown Indentation Issues
+    def render_lineup_section(title, player_list, slot_label="BN"):
+        st.markdown(f"### {title} ({len(player_list)})")
+        if not player_list:
+            st.caption("No players in this slot.")
             return
-        for pid in id_list:
+
+        league_slots = league_info.get("roster_positions", [])
+        
+        for idx, pid in enumerate(player_list):
             p = player_evals.get(pid)
             if not p:
                 continue
-            rookie = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
-            inj = all_players.get(pid, {}).get("injury_status")
-            inj_tag = f'<span class="badge badge-unc">{inj}</span>' if inj else ''
-            st.markdown(f"""
-            <div class="glass-card-interactive">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="player-title">{p['name']}</span> 
-                        <span class="player-sub">({p['pos']} • {p['age']} yo)</span>
-                        <div style="margin-top: 4px;">
-                            <span class="badge {p['badge']}">{p['stage'].upper()}</span>
-                            {rookie}
-                            <span class="badge {p['act_badge']}">{p['action']}</span>
-                            {inj_tag}
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div class="player-val">{p['value']}</div>
-                        <div style="font-size: 11px; color: #64748b;">Asset Pts</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            
+            # Determine Slot Name
+            if slot_label == "START":
+                pos_display = league_slots[idx] if idx < len(league_slots) else "FLEX"
+            else:
+                pos_display = slot_label
 
-    c1, c2 = st.columns(2)
+            rookie_html = '<span class="badge badge-rookie">ROOKIE</span>' if p["rookie"] else ''
+            
+            row_html = (
+                f'<div class="lineup-row">'
+                f'  <div style="display: flex; align-items: center;">'
+                f'      <div class="pos-slot">{pos_display}</div>'
+                f'      <img src="{p["img"]}" class="player-avatar" onerror="this.onerror=null;this.src=\'https://sleepercdn.com/images/v2/icons/player_default.webp\';">'
+                f'      <div>'
+                f'          <div style="font-size: 15px; font-weight: 600; color: #f8fafc;">{p["name"]} '
+                f'              <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">{p["pos"]} - {p["team"]} • {p["age"]}yo</span>'
+                f'          </div>'
+                f'          <div style="margin-top: 3px;">'
+                f'              <span class="badge {p["badge"]}">{p["stage"].upper()}</span>'
+                f'              {rookie_html}'
+                f'              <span class="badge {p["act_badge"]}">{p["action"]}</span>'
+                f'          </div>'
+                f'      </div>'
+                f'  </div>'
+                f'  <div style="text-align: right;">'
+                f'      <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">{p["value"]}</div>'
+                f'      <div style="font-size: 11px; color: #64748b;">Dynasty Index</div>'
+                f'  </div>'
+                f'</div>'
+            )
+            st.markdown(row_html, unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 1])
     with c1:
-        show_players("⚡ Starters", starters)
-        show_players("🚑 Injured Reserve (IR)", reserve)
+        render_lineup_section("⚡ Starters", starters, slot_label="START")
+        render_lineup_section("🚑 Injured Reserve (IR)", reserve, slot_label="IR")
     with c2:
-        show_players("🪑 Bench", bench)
-        show_players("🚕 Taxi Squad", taxi)
+        render_lineup_section("🪑 Bench", bench, slot_label="BN")
+        render_lineup_section("🚕 Taxi Squad", taxi, slot_label="TAXI")
 
 # ==================== TAB 2: MATCHUP OUTLOOK ====================
 with tab_matchup:
@@ -434,8 +473,10 @@ with tab_trades:
     else:
         for tx in all_trades[:5]:
             st.markdown(f"""
-            <div class="glass-card-interactive">
-                <strong>Trade Transaction ID: {tx.get('transaction_id')}</strong>
-                <p style="font-size: 13px; color: #94a3b8; margin: 4px 0;">Completed Trade</p>
+            <div class="lineup-row">
+                <div>
+                    <strong>Trade Transaction ID: {tx.get('transaction_id')}</strong>
+                    <div style="font-size: 12px; color: #94a3b8;">Completed Trade</div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
